@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mymoney-postgres
+    environment:
+      POSTGRES_USER: mymoney
+      POSTGRES_PASSWORD: mymoney123
+      POSTGRES_DB: mymoney
+    ports:
+      - "7002:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mymoney"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mymoney-backend
+    environment:
+      DATABASE_URL: postgresql://mymoney:mymoney123@postgres:5432/mymoney
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "7001:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    command: sh -c "python init_db.py && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: mymoney-frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:7001
+      NODE_ENV: production
+    ports:
+      - "7000:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+
+volumes:
+  postgres_data:
+
