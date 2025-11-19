@@ -36,7 +36,7 @@ export default function DataVisualization({ uploadId }: DataVisualizationProps) 
     return (
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="p-4 bg-red-50 border border-red-200 rounded text-red-700">
-          {error}
+          {error instanceof Error ? error.message : String(error)}
         </div>
       </div>
     );

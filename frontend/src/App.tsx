@@ -6,7 +6,11 @@ import { useUploads } from './hooks/useUploads';
 function App() {
   const [selectedUploadId, setSelectedUploadId] = useState<number | null>(null);
 
-  const { data: uploads = [], isLoading } = useUploads();
+  const { data: uploads = [], isLoading, refetch } = useUploads();
+
+  const handleUploadSuccess = () => {
+    refetch();
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
