@@ -12,7 +12,10 @@ app = FastAPI(title="MyMoney API", version="1.0.0")
 # CORS 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:7000", "http://frontend:3000"],
+    allow_origins=[
+        "http://localhost:8050",  # 프론트엔드 호스트 포트
+        "http://frontend:80",     # Docker 내부 네트워크
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

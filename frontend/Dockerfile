@@ -9,7 +9,7 @@ RUN npm install
 # 빌드 단계
 FROM base AS builder
 WORKDIR /app
-ARG VITE_API_URL=http://localhost:7001
+ARG VITE_API_URL=http://localhost:8051
 ENV VITE_API_URL=$VITE_API_URL
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
