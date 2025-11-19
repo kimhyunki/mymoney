@@ -11,7 +11,7 @@ services:
       POSTGRES_PASSWORD: mymoney123
       POSTGRES_DB: mymoney
     ports:
-      - "7002:5432"
+      - "8052:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -29,7 +29,7 @@ services:
       DATABASE_URL: postgresql://mymoney:mymoney123@database:5432/mymoney
       PYTHONUNBUFFERED: 1
     ports:
-      - "7001:8000"
+      - "8051:8000"
     depends_on:
       database:
         condition: service_healthy
@@ -42,10 +42,10 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: http://localhost:7001
+        VITE_API_URL: http://localhost:8051
     container_name: mymoney-frontend
     ports:
-      - "7000:80"
+      - "8050:80"
     depends_on:
       - backend
 
