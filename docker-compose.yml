@@ -1,9 +1,11 @@
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: mymoney-postgres
+  database:
+    build:
+      context: ./database
+      dockerfile: Dockerfile
+    container_name: mymoney-database
     environment:
       POSTGRES_USER: mymoney
       POSTGRES_PASSWORD: mymoney123
@@ -12,11 +14,6 @@ services:
       - "7002:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mymoney"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   backend:
     build:
@@ -24,16 +21,16 @@ services:
       dockerfile: Dockerfile
     container_name: mymoney-backend
     environment:
-      DATABASE_URL: postgresql://mymoney:mymoney123@postgres:5432/mymoney
+      DATABASE_URL: postgresql://mymoney:mymoney123@database:5432/mymoney
       PYTHONUNBUFFERED: 1
     ports:
       - "7001:8000"
     depends_on:
-      postgres:
+      database:
         condition: service_healthy
     volumes:
       - ./backend:/app
-    command: sh -c "python init_db.py && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
     build:
