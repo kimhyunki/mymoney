@@ -36,18 +36,13 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:7001
     container_name: mymoney-frontend
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:7001
-      NODE_ENV: production
     ports:
-      - "7000:3000"
+      - "7000:80"
     depends_on:
       - backend
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
 
 volumes:
   postgres_data:
