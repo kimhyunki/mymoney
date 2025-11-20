@@ -17,6 +17,7 @@ import {
 import type { SheetWithData } from '@/types';
 import { getMonthlyAggregation } from '@/utils/dataAnalysis';
 import { formatMonth } from '@/utils/dateUtils';
+import BankStatusCharts from './BankStatusCharts';
 
 interface ChartTypesProps {
   data: SheetWithData;
@@ -25,6 +26,17 @@ interface ChartTypesProps {
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
 export default function ChartTypes({ data }: ChartTypesProps) {
+  // 뱅샐현황 또는 뱅생현황 시트인지 확인
+  const isBankStatusSheet = useMemo(() => {
+    const sheetName = data.sheet.sheet_name;
+    return sheetName === '뱅샐현황' || sheetName === '뱅생현황';
+  }, [data.sheet.sheet_name]);
+
+  // 뱅샐현황 시트인 경우 BankStatusCharts 사용
+  if (isBankStatusSheet) {
+    return <BankStatusCharts data={data} />;
+  }
+
   // 월별 집계 데이터
   const monthlyData = useMemo(() => {
     return getMonthlyAggregation(data);

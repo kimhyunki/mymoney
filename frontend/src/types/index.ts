@@ -32,3 +32,17 @@ export interface UploadResponse {
   message: string;
 }
 
+// 뱅샐현황 관련 타입
+export type {
+  CashFlowItem,
+  CashFlowData,
+  FinancialAssetItem,
+  FinancialStatusData,
+  InsuranceItem,
+  InsuranceStatusData,
+  InvestmentItem,
+  InvestmentStatusData,
+  LoanItem,
+  LoanStatusData,
+} from '@/utils/bankStatusParser';
+
