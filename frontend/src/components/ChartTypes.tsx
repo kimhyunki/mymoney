@@ -15,6 +15,8 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import type { SheetWithData } from '@/types';
+import { getMonthlyAggregation } from '@/utils/dataAnalysis';
+import { formatMonth } from '@/utils/dateUtils';
 
 interface ChartTypesProps {
   data: SheetWithData;
@@ -23,6 +25,22 @@ interface ChartTypesProps {
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
 export default function ChartTypes({ data }: ChartTypesProps) {
+  // 월별 집계 데이터
+  const monthlyData = useMemo(() => {
+    return getMonthlyAggregation(data);
+  }, [data]);
+
+  // 차트용 월별 데이터 변환
+  const monthlyChartData = useMemo(() => {
+    return monthlyData.map(item => ({
+      month: formatMonth(item.month),
+      monthKey: item.month,
+      수입: item.income,
+      지출: item.expense,
+      순수익: item.income - item.expense,
+    }));
+  }, [monthlyData]);
+
   // 데이터 변환: 첫 번째 열을 X축, 두 번째 열을 Y축으로 사용
   const chartData = useMemo(() => {
     if (!data.records || data.records.length === 0) return [];
@@ -59,7 +77,10 @@ export default function ChartTypes({ data }: ChartTypesProps) {
       .slice(0, 10); // 상위 10개만
   }, [data.records]);
 
-  if (chartData.length === 0) {
+  // 월별 차트나 기존 차트 중 하나라도 있으면 표시
+  const hasAnyChart = monthlyChartData.length > 0 || chartData.length > 0;
+  
+  if (!hasAnyChart) {
     return (
       <div className="p-4 bg-gray-50 rounded text-center text-gray-500">
         차트를 표시할 수 있는 숫자 데이터가 없습니다.
@@ -67,10 +88,115 @@ export default function ChartTypes({ data }: ChartTypesProps) {
     );
   }
 
+  // 금액 포맷팅 함수
+  const formatAmount = (value: number) => {
+    return new Intl.NumberFormat('ko-KR', {
+      style: 'currency',
+      currency: 'KRW',
+    }).format(value);
+  };
+
+  // 커스텀 툴팁 컴포넌트
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-3 border border-gray-300 rounded shadow-lg">
+          <p className="font-semibold mb-2">{label}</p>
+          {payload.map((entry: any, index: number) => (
+            <p key={index} style={{ color: entry.color }} className="text-sm">
+              {`${entry.name}: ${formatAmount(entry.value)}`}
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold mb-3">라인 차트</h3>
+      {/* 월별 집계 차트 */}
+      {monthlyChartData.length > 0 && (
+        <>
+          <div>
+            <h3 className="text-lg font-semibold mb-3">월별 수입/지출 추이</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={monthlyChartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="month" 
+                  angle={-45}
+                  textAnchor="end"
+                  height={80}
+                />
+                <YAxis 
+                  tickFormatter={(value) => {
+                    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+                    if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
+                    return String(value);
+                  }}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                <Line 
+                  type="monotone" 
+                  dataKey="수입" 
+                  stroke="#00C49F" 
+                  strokeWidth={2}
+                  name="수입"
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="지출" 
+                  stroke="#FF8042" 
+                  strokeWidth={2}
+                  name="지출"
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="순수익" 
+                  stroke="#8884d8" 
+                  strokeWidth={2}
+                  strokeDasharray="5 5"
+                  name="순수익"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div>
+            <h3 className="text-lg font-semibold mb-3">월별 수입/지출 합계</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={monthlyChartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="month" 
+                  angle={-45}
+                  textAnchor="end"
+                  height={80}
+                />
+                <YAxis 
+                  tickFormatter={(value) => {
+                    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+                    if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
+                    return String(value);
+                  }}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                <Bar dataKey="수입" fill="#00C49F" name="수입" />
+                <Bar dataKey="지출" fill="#FF8042" name="지출" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </>
+      )}
+
+      {/* 기존 차트 */}
+      {chartData.length > 0 && (
+        <>
+          <div>
+            <h3 className="text-lg font-semibold mb-3">라인 차트</h3>
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -109,29 +235,31 @@ export default function ChartTypes({ data }: ChartTypesProps) {
         </ResponsiveContainer>
       </div>
 
-      {pieData.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold mb-3">파이 차트 (상위 10개 값)</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={pieData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {pieData.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+          {pieData.length > 0 && (
+            <div>
+              <h3 className="text-lg font-semibold mb-3">파이 차트 (상위 10개 값)</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {pieData.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
