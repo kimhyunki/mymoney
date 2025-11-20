@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from typing import List, Optional, Any
+from datetime import datetime, date, time
 from app.models import UploadHistory, SheetData, DataRecord
 
 def create_upload_history(db: Session, filename: str, sheet_count: int) -> UploadHistory:
@@ -23,12 +24,32 @@ def create_sheet_data(db: Session, upload_id: int, sheet_name: str, row_count: i
     db.refresh(sheet)
     return sheet
 
+def _convert_datetime_to_string(value: Any) -> Any:
+    """
+    datetime, date, time 객체를 ISO 형식 문자열로 변환합니다.
+    다른 타입의 값은 그대로 반환합니다.
+    
+    Args:
+        value: 변환할 값
+    
+    Returns:
+        datetime/date/time 객체는 ISO 형식 문자열, 그 외는 원본 값
+    """
+    if isinstance(value, datetime):
+        return value.isoformat()
+    elif isinstance(value, date):
+        return value.isoformat()
+    elif isinstance(value, time):
+        return value.isoformat()
+    return value
+
 def create_data_records(db: Session, sheet_id: int, data: List[List[Any]]) -> List[DataRecord]:
     """데이터 레코드 생성"""
     records = []
     for row_index, row_data in enumerate(data):
         # 행 데이터를 딕셔너리로 변환 (열 인덱스를 키로 사용)
-        row_dict = {str(i): value for i, value in enumerate(row_data)}
+        # datetime 객체가 있는 경우 문자열로 변환 (이중 보호)
+        row_dict = {str(i): _convert_datetime_to_string(value) for i, value in enumerate(row_data)}
         record = DataRecord(
             sheet_id=sheet_id,
             row_index=row_index,

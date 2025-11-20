@@ -2,6 +2,26 @@ import openpyxl
 import xlrd
 from typing import List, Dict, Any
 import io
+from datetime import datetime, date, time
+
+def convert_datetime_to_string(value: Any) -> Any:
+    """
+    datetime, date, time 객체를 ISO 형식 문자열로 변환합니다.
+    다른 타입의 값은 그대로 반환합니다.
+    
+    Args:
+        value: 변환할 값
+    
+    Returns:
+        datetime/date/time 객체는 ISO 형식 문자열, 그 외는 원본 값
+    """
+    if isinstance(value, datetime):
+        return value.isoformat()
+    elif isinstance(value, date):
+        return value.isoformat()
+    elif isinstance(value, time):
+        return value.isoformat()
+    return value
 
 def parse_excel_file(file_content: bytes, filename: str) -> Dict[str, Any]:
     """
@@ -34,8 +54,8 @@ def parse_excel_file(file_content: bytes, filename: str) -> Dict[str, Any]:
             data = []
             
             for row in sheet.iter_rows(values_only=True):
-                # None 값 제거 및 리스트로 변환
-                row_data = [cell if cell is not None else "" for cell in row]
+                # None 값 제거 및 리스트로 변환, datetime 객체는 문자열로 변환
+                row_data = [convert_datetime_to_string(cell) if cell is not None else "" for cell in row]
                 if any(cell != "" for cell in row_data):  # 빈 행 제외
                     data.append(row_data)
             
@@ -61,7 +81,13 @@ def parse_excel_file(file_content: bytes, filename: str) -> Dict[str, Any]:
                 row_data = []
                 for col_idx in range(sheet.ncols):
                     cell_value = sheet.cell_value(row_idx, col_idx)
-                    row_data.append(cell_value)
+                    # xlrd는 날짜를 float로 반환하므로, 날짜 타입인 경우 datetime으로 변환 후 문자열로 변환
+                    if sheet.cell_type(row_idx, col_idx) == xlrd.XL_CELL_DATE:
+                        # xlrd의 날짜 변환
+                        date_tuple = xlrd.xldate_as_tuple(cell_value, workbook.datemode)
+                        if date_tuple:
+                            cell_value = datetime(*date_tuple[:6])
+                    row_data.append(convert_datetime_to_string(cell_value))
                 
                 if any(cell != "" for cell in row_data):  # 빈 행 제외
                     data.append(row_data)
