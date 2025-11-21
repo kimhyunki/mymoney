@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import FileUpload from './components/FileUpload';
 import DataVisualization from './components/DataVisualization';
+import CustomerInfo from './components/CustomerInfo';
 import { useUploads } from './hooks/useUploads';
 
 function App() {
@@ -31,7 +32,7 @@ function App() {
               <FileUpload onUploadSuccess={handleUploadSuccess} />
             </div>
 
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
               <h2 className="text-xl font-semibold mb-4">업로드 이력</h2>
               {isLoading ? (
                 <p className="text-gray-500">로딩 중...</p>
@@ -61,6 +62,8 @@ function App() {
                 </ul>
               )}
             </div>
+
+            <CustomerInfo />
           </div>
 
           <div className="lg:col-span-2">
