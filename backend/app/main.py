@@ -3,8 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import upload, data
 from app.database import engine
 from app.models import Base
+from app.services import scheduler_service
 import logging
 import sys
+import os
 
 # 로깅 설정
 logging.basicConfig(
@@ -39,6 +41,15 @@ app.add_middleware(
 # 라우터 등록
 app.include_router(upload.router, prefix="/api", tags=["upload"])
 app.include_router(data.router, prefix="/api", tags=["data"])
+
+# 스케줄러 시작 (환경 변수로 주기 설정 가능, 기본값: 30초)
+sync_interval = int(os.getenv("CUSTOMER_SYNC_INTERVAL", "30"))
+scheduler_service.start_scheduler(interval_seconds=sync_interval)
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """앱 종료 시 스케줄러 중지"""
+    scheduler_service.stop_scheduler()
 
 @app.get("/")
 async def root():
