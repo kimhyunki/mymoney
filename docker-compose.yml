@@ -40,14 +40,20 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
       args:
         VITE_API_URL: http://localhost:8051
     container_name: mymoney-frontend
+    environment:
+      VITE_API_URL: http://localhost:8051
     ports:
-      - "8050:80"
+      - "8050:3000"
     depends_on:
       - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run dev
 
 volumes:
   postgres_data:
