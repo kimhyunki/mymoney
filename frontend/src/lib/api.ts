@@ -1,4 +1,4 @@
-import type { UploadHistory, SheetData, SheetWithData, UploadResponse } from '@/types';
+import type { UploadHistory, SheetData, SheetWithData, UploadResponse, Customer } from '@/types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8051';
 
@@ -78,5 +78,15 @@ export async function getSheets(uploadId: number): Promise<SheetData[]> {
 
 export async function getSheetWithData(sheetId: number): Promise<SheetWithData> {
   return fetchAPI<SheetWithData>(`/api/sheets/${sheetId}`);
+}
+
+export async function getCustomers(): Promise<Customer[]> {
+  return fetchAPI<Customer[]>('/api/customers');
+}
+
+export async function extractCustomerFromSheet(sheetId: number): Promise<Customer> {
+  return fetchAPI<Customer>(`/api/sheets/${sheetId}/extract-customer`, {
+    method: 'POST',
+  });
 }
 
