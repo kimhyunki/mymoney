@@ -11,7 +11,7 @@ export default function DataVisualization({ uploadId }: DataVisualizationProps) 
   const [selectedSheetId, setSelectedSheetId] = useState<number | null>(null);
   
   const { data: sheets = [], isLoading: sheetsLoading, error: sheetsError } = useSheets(uploadId);
-  const { data: selectedSheet, isLoading: sheetDataLoading, error: sheetDataError } = useSheetData(selectedSheetId);
+  const { data: selectedSheet, isLoading: sheetDataLoading, isFetching: sheetDataFetching, error: sheetDataError } = useSheetData(selectedSheetId);
 
   // 첫 번째 시트 자동 선택
   useEffect(() => {
@@ -22,7 +22,12 @@ export default function DataVisualization({ uploadId }: DataVisualizationProps) 
 
   const loading = sheetsLoading || sheetDataLoading;
   const error = sheetsError || sheetDataError;
+  
+  // 현재 선택된 시트의 데이터인지 확인
+  const isCurrentSheetData = selectedSheet && selectedSheetId !== null && selectedSheet.sheet.id === selectedSheetId;
 
+  // placeholderData를 사용하면 이전 데이터가 유지되므로 로딩 중에도 이전 데이터를 표시
+  // 초기 로딩 시에만 로딩 화면 표시
   if (loading && !selectedSheet) {
     return (
       <div className="bg-white rounded-lg shadow-md p-12 text-center">
@@ -65,7 +70,15 @@ export default function DataVisualization({ uploadId }: DataVisualizationProps) 
         </div>
       )}
 
-      {selectedSheet && (
+      {/* 시트 데이터 로딩 중이거나 현재 시트 데이터가 아닐 때 */}
+      {selectedSheetId !== null && (sheetDataFetching || !isCurrentSheetData) && (
+        <div className="bg-white rounded-lg shadow-md p-12 text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="text-gray-500 mt-4">시트 데이터 로딩 중...</p>
+        </div>
+      )}
+
+      {isCurrentSheetData && selectedSheet && !sheetDataFetching && (
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-2xl font-semibold mb-4">
             {selectedSheet.sheet.sheet_name}
@@ -87,7 +100,7 @@ export default function DataVisualization({ uploadId }: DataVisualizationProps) 
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    {selectedSheet.records.length > 0 && 
+                    {selectedSheet.records.length > 0 && selectedSheet.records[0].data && 
                       Object.keys(selectedSheet.records[0].data).map((key) => (
                         <th
                           key={key}
