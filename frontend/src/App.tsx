@@ -2,6 +2,7 @@ import { useState } from 'react';
 import FileUpload from './components/FileUpload';
 import DataVisualization from './components/DataVisualization';
 import CustomerInfo from './components/CustomerInfo';
+import CashFlowStatus from './components/CashFlowStatus';
 import { useUploads } from './hooks/useUploads';
 
 function App() {
@@ -68,12 +69,18 @@ function App() {
 
           <div className="lg:col-span-2">
             {selectedUploadId ? (
-              <DataVisualization uploadId={selectedUploadId} />
+              <div className="space-y-6">
+                <DataVisualization uploadId={selectedUploadId} />
+                <CashFlowStatus />
+              </div>
             ) : (
-              <div className="bg-white rounded-lg shadow-md p-12 text-center">
-                <p className="text-gray-500 text-lg">
-                  왼쪽에서 업로드 이력을 선택하여 데이터를 시각화하세요
-                </p>
+              <div className="space-y-6">
+                <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                  <p className="text-gray-500 text-lg">
+                    왼쪽에서 업로드 이력을 선택하여 데이터를 시각화하세요
+                  </p>
+                </div>
+                <CashFlowStatus />
               </div>
             )}
           </div>
