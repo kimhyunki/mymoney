@@ -1,0 +1,44 @@
+# 줄바꿈 문자 자동 처리 설정
+# 모든 텍스트 파일을 LF로 정규화 (맥/리눅스 스타일)
+* text=auto eol=lf
+
+# 소스 코드 파일들
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.json text eol=lf
+*.css text eol=lf
+*.scss text eol=lf
+*.html text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.py text eol=lf
+*.sh text eol=lf
+*.txt text eol=lf
+
+# 설정 파일들
+*.gitignore text eol=lf
+*.editorconfig text eol=lf
+*.prettierrc text eol=lf
+*.eslintrc text eol=lf
+
+# 바이너리 파일들
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.pdf binary
+
+# 데이터베이스 파일
+*.db binary
+*.sqlite binary
+*.sqlite3 binary
+
