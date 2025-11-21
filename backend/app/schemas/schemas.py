@@ -40,3 +40,22 @@ class SheetWithDataResponse(BaseModel):
     sheet: SheetDataResponse
     records: List[DataRecordResponse]
 
+class CustomerBase(BaseModel):
+    name: str
+    gender: Optional[str] = None
+    age: Optional[int] = None
+    credit_score: Optional[int] = None
+    email: Optional[str] = None
+
+class CustomerCreate(CustomerBase):
+    data_record_id: Optional[int] = None
+
+class CustomerResponse(CustomerBase):
+    id: int
+    data_record_id: Optional[int] = None
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
