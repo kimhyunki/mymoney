@@ -35,3 +35,18 @@ class DataRecord(Base):
     
     sheet = relationship("SheetData", back_populates="records")
 
+class Customer(Base):
+    __tablename__ = "customer"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False, index=True)  # 이름
+    gender = Column(String, nullable=True)  # 성별 (남/여)
+    age = Column(Integer, nullable=True)  # 나이 (만 나이)
+    credit_score = Column(Integer, nullable=True)  # 신용점수 (KCB)
+    email = Column(String, nullable=True)  # 이메일
+    data_record_id = Column(Integer, ForeignKey("data_record.id"), nullable=True)  # 원본 데이터 레코드 참조
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    data_record = relationship("DataRecord", backref="customers")
+
