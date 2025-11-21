@@ -44,6 +44,19 @@ export interface Customer {
   updated_at: string;
 }
 
+export interface CashFlow {
+  id: number;
+  sheet_id: number;
+  item_name: string;
+  item_type: string | null;
+  total: number | null;
+  monthly_average: number | null;
+  monthly_data: Record<string, number> | null;
+  data_record_id: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // 뱅샐현황 관련 타입
 export type {
   CashFlowItem,

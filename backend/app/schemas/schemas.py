@@ -59,3 +59,24 @@ class CustomerResponse(CustomerBase):
     class Config:
         from_attributes = True
 
+class CashFlowBase(BaseModel):
+    item_name: str
+    item_type: Optional[str] = None
+    total: Optional[float] = None
+    monthly_average: Optional[float] = None
+    monthly_data: Optional[Dict[str, Any]] = None
+
+class CashFlowCreate(CashFlowBase):
+    sheet_id: int
+    data_record_id: Optional[int] = None
+
+class CashFlowResponse(CashFlowBase):
+    id: int
+    sheet_id: int
+    data_record_id: Optional[int] = None
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+

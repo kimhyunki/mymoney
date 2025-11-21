@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 # 모델과 데이터베이스 설정 import
 from app.database import Base
-from app.models import UploadHistory, SheetData, DataRecord, Customer
+from app.models import UploadHistory, SheetData, DataRecord, Customer, CashFlow
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

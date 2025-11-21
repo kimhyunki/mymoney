@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON, Text
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON, Text, Numeric
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
@@ -49,4 +49,21 @@ class Customer(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
     data_record = relationship("DataRecord", backref="customers")
+
+class CashFlow(Base):
+    __tablename__ = "cash_flow"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    sheet_id = Column(Integer, ForeignKey("sheet_data.id"), nullable=False)
+    item_name = Column(String, nullable=False, index=True)  # 항목명 (금융수입, 급여 등)
+    item_type = Column(String, nullable=True)  # 항목 타입 (수입/지출)
+    total = Column(Numeric(precision=15, scale=2), nullable=True)  # 총계
+    monthly_average = Column(Numeric(precision=15, scale=2), nullable=True)  # 월평균
+    monthly_data = Column(JSON, nullable=True)  # 월별 데이터 { "2024-11": 1000, "2024-12": 2000, ... }
+    data_record_id = Column(Integer, ForeignKey("data_record.id"), nullable=True)  # 원본 데이터 레코드 참조
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    sheet = relationship("SheetData", backref="cash_flows")
+    data_record = relationship("DataRecord", backref="cash_flows")
 

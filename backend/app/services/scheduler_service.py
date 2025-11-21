@@ -6,7 +6,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.services import data_service
-from app.models import SheetData, Customer, DataRecord
+from app.models import SheetData, Customer, CashFlow, DataRecord
 import logging
 
 logger = logging.getLogger(__name__)
@@ -69,6 +69,58 @@ def sync_customers_from_data_records():
     finally:
         db.close()
 
+def sync_cash_flows_from_data_records():
+    """
+    모든 시트를 스캔하여 cash_flow 테이블을 업데이트합니다.
+    주기적으로 실행되는 함수입니다.
+    """
+    db: Session = SessionLocal()
+    try:
+        logger.info("=== 현금 흐름 현황 동기화 시작 ===")
+        
+        # 모든 시트 조회
+        sheets = db.query(SheetData).all()
+        logger.info(f"총 {len(sheets)}개의 시트를 확인합니다.")
+        
+        updated_count = 0
+        created_count = 0
+        
+        for sheet in sheets:
+            try:
+                # 현금 흐름 추출 함수 사용
+                cash_flows = data_service.extract_and_save_cash_flows_from_data_record(
+                    db=db,
+                    sheet_id=sheet.id
+                )
+                
+                for cash_flow in cash_flows:
+                    # 기존 cash_flow인지 확인
+                    existing = db.query(CashFlow).filter(
+                        CashFlow.sheet_id == sheet.id,
+                        CashFlow.item_name == cash_flow.item_name,
+                        CashFlow.id != cash_flow.id
+                    ).first()
+                    
+                    if existing:
+                        updated_count += 1
+                        logger.debug(f"시트 {sheet.id}의 현금 흐름 업데이트: {cash_flow.item_name}")
+                    else:
+                        created_count += 1
+                        logger.debug(f"시트 {sheet.id}의 현금 흐름 생성: {cash_flow.item_name}")
+                        
+            except Exception as e:
+                logger.error(f"시트 {sheet.id} 처리 중 오류: {str(e)}", exc_info=True)
+                continue
+        
+        logger.info(
+            f"=== 현금 흐름 현황 동기화 완료 - 생성: {created_count}, 업데이트: {updated_count} ==="
+        )
+        
+    except Exception as e:
+        logger.error(f"현금 흐름 현황 동기화 중 오류 발생: {str(e)}", exc_info=True)
+    finally:
+        db.close()
+
 def start_scheduler(interval_seconds: int = 30):
     """
     스케줄러를 시작합니다.
@@ -89,8 +141,16 @@ def start_scheduler(interval_seconds: int = 30):
         replace_existing=True
     )
     
+    scheduler.add_job(
+        sync_cash_flows_from_data_records,
+        trigger=IntervalTrigger(seconds=interval_seconds),
+        id='sync_cash_flows',
+        name='현금 흐름 현황 동기화',
+        replace_existing=True
+    )
+    
     scheduler.start()
-    logger.info(f"스케줄러 시작됨 - 고객정보 동기화 주기: {interval_seconds}초")
+    logger.info(f"스케줄러 시작됨 - 동기화 주기: {interval_seconds}초 (고객정보, 현금 흐름 현황)")
 
 def stop_scheduler():
     """스케줄러를 중지합니다."""

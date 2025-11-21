@@ -8,7 +8,8 @@ from app.schemas.schemas import (
     SheetDataResponse,
     DataRecordResponse,
     SheetWithDataResponse,
-    CustomerResponse
+    CustomerResponse,
+    CashFlowResponse
 )
 
 router = APIRouter()
@@ -92,4 +93,32 @@ async def get_customers(
     from app.models import Customer
     customers = db.query(Customer).offset(skip).limit(limit).all()
     return customers
+
+@router.get("/cash-flows", response_model=List[CashFlowResponse])
+async def get_cash_flows(
+    sheet_id: Optional[int] = None,
+    skip: int = 0,
+    limit: int = 1000,
+    db: Session = Depends(get_db)
+):
+    """현금 흐름 현황 조회"""
+    from app.models import CashFlow
+    query = db.query(CashFlow)
+    if sheet_id:
+        query = query.filter(CashFlow.sheet_id == sheet_id)
+    cash_flows = query.offset(skip).limit(limit).all()
+    return cash_flows
+
+@router.post("/sheets/{sheet_id}/extract-cash-flows", response_model=List[CashFlowResponse])
+async def extract_cash_flows_from_sheet(
+    sheet_id: int,
+    db: Session = Depends(get_db)
+):
+    """시트에서 현금 흐름 현황을 추출하여 cash_flow 테이블에 저장"""
+    sheet = data_service.get_sheet_data(db=db, sheet_id=sheet_id)
+    if not sheet:
+        raise HTTPException(status_code=404, detail="시트를 찾을 수 없습니다.")
+    
+    cash_flows = data_service.extract_and_save_cash_flows_from_data_record(db=db, sheet_id=sheet_id)
+    return cash_flows
 
