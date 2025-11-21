@@ -1,0 +1,456 @@
+# MyMoney 프로젝트 개발 룰
+
+## 데이터 추출 및 동기화 기능 구현 패턴
+
+이 프로젝트에서는 Excel 파일의 `data_record`에서 특정 정보를 추출하여 별도 테이블에 저장하고, 주기적으로 동기화하는 패턴을 사용합니다. (예: Customer, CashFlow)
+
+### 구현 단계별 가이드
+
+#### 1. 백엔드 - 데이터 모델 생성
+
+**위치:** `backend/app/models/models.py`
+
+```python
+class YourModel(Base):
+    __tablename__ = "your_table_name"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    # 필요한 필드들 정의
+    data_record_id = Column(Integer, ForeignKey("data_record.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    data_record = relationship("DataRecord", backref="your_models")
+```
+
+**주의사항:**
+- `data_record_id`를 ForeignKey로 추가하여 원본 데이터와 연결
+- `created_at`, `updated_at` 타임스탬프 필드 포함
+- `__init__.py`에 모델 export 추가
+
+#### 2. Pydantic 스키마 생성
+
+**위치:** `backend/app/schemas/schemas.py`
+
+```python
+class YourModelBase(BaseModel):
+    # 기본 필드들
+    pass
+
+class YourModelCreate(YourModelBase):
+    data_record_id: Optional[int] = None
+
+class YourModelResponse(YourModelBase):
+    id: int
+    data_record_id: Optional[int] = None
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+```
+
+#### 3. Alembic 마이그레이션 생성
+
+**명령어:**
+```bash
+docker exec mymoney-backend alembic revision --autogenerate -m "create_your_table"
+```
+
+**파일명 규칙:**
+- 순차적 번호 사용: `001_`, `002_`, `003_` ...
+- 예: `002_create_cash_flow_table.py`
+
+**주의사항:**
+- `alembic/env.py`에 새 모델 import 추가
+- 마이그레이션 파일의 `down_revision`이 이전 마이그레이션 ID와 일치하는지 확인
+
+#### 4. 데이터 추출 서비스 함수 구현
+
+**위치:** `backend/app/services/data_service.py`
+
+**패턴:**
+```python
+def extract_and_save_your_data_from_data_record(db: Session, sheet_id: int) -> List[YourModel]:
+    """
+    data_record에서 특정 정보를 추출하여 your_table에 저장합니다.
+    
+    Args:
+        db: 데이터베이스 세션
+        sheet_id: 시트 ID
+    
+    Returns:
+        생성된 YourModel 객체 리스트
+    """
+    # 1. 시트의 모든 레코드 조회
+    records = db.query(DataRecord).filter(
+        DataRecord.sheet_id == sheet_id
+    ).order_by(DataRecord.row_index).all()
+    
+    if not records:
+        return []
+    
+    # 2. 섹션 헤더 찾기 (예: "2.현금흐름현황")
+    section_start_index = None
+    for record in records:
+        data = record.data
+        col1_raw = data.get("1", "")
+        # 타입 안전한 문자열 변환
+        if isinstance(col1_raw, (int, float)):
+            col1 = str(col1_raw).strip()
+        elif isinstance(col1_raw, str):
+            col1 = col1_raw.strip()
+        else:
+            col1 = ""
+        if "섹션키워드" in col1:
+            section_start_index = record.row_index
+            break
+    
+    if section_start_index is None:
+        return []
+    
+    # 3. 헤더 행 찾기
+    header_row_index = None
+    for record in records:
+        if record.row_index <= section_start_index:
+            continue
+        data = record.data
+        col1_raw = data.get("1", "")
+        # 타입 안전한 문자열 변환
+        if isinstance(col1_raw, (int, float)):
+            col1 = str(col1_raw).strip()
+        elif isinstance(col1_raw, str):
+            col1 = col1_raw.strip()
+        else:
+            col1 = ""
+        if col1 == "항목":  # 또는 적절한 헤더 키워드
+            header_row_index = record.row_index
+            break
+    
+    if header_row_index is None:
+        return []
+    
+    # 4. 데이터 행들 추출 및 저장
+    results = []
+    for record in records:
+        if record.row_index <= header_row_index:
+            continue
+        
+        data = record.data
+        # 필드 추출 (타입 안전하게)
+        field_raw = data.get("필드키", "")
+        if isinstance(field_raw, (int, float)):
+            field = str(field_raw).strip()
+        elif isinstance(field_raw, str):
+            field = field_raw.strip()
+        else:
+            field = ""
+        
+        # 불필요한 항목 제외
+        exclude_keywords = ["항목", "총계", "현황", "분석"]
+        if not field or field in exclude_keywords:
+            continue
+        
+        # 숫자 변환 (안전하게)
+        numeric_value = None
+        numeric_str = data.get("숫자필드", "")
+        if numeric_str:
+            try:
+                if isinstance(numeric_str, (int, float)):
+                    numeric_value = float(numeric_str)
+                elif isinstance(numeric_str, str) and numeric_str.strip():
+                    cleaned = numeric_str.strip().replace(',', '')
+                    if cleaned.replace('.', '').replace('-', '').isdigit():
+                        numeric_value = float(cleaned)
+            except (ValueError, TypeError):
+                numeric_value = None
+        
+        # 기존 데이터 확인 및 업데이트/생성
+        existing = db.query(YourModel).filter(
+            YourModel.sheet_id == sheet_id,
+            YourModel.unique_field == field
+        ).first()
+        
+        if existing:
+            # 업데이트
+            existing.field = field
+            existing.numeric_value = numeric_value
+            existing.data_record_id = record.id
+            existing.updated_at = datetime.now()
+            db.commit()
+            db.refresh(existing)
+            results.append(existing)
+        else:
+            # 생성
+            new_item = YourModel(
+                sheet_id=sheet_id,
+                field=field,
+                numeric_value=numeric_value,
+                data_record_id=record.id
+            )
+            db.add(new_item)
+            db.commit()
+            db.refresh(new_item)
+            results.append(new_item)
+    
+    return results
+```
+
+**중요 규칙:**
+- 항상 타입 안전한 문자열 변환 사용 (int/float → str)
+- 숫자 변환 시 예외 처리 필수
+- 불필요한 항목(요약 행, 헤더, 섹션 제목 등) 제외 로직 포함
+- 기존 데이터는 업데이트, 신규 데이터는 생성
+
+#### 5. API 엔드포인트 추가
+
+**위치:** `backend/app/api/data.py`
+
+```python
+@router.get("/your-models", response_model=List[YourModelResponse])
+async def get_your_models(
+    sheet_id: Optional[int] = None,
+    skip: int = 0,
+    limit: int = 1000,
+    db: Session = Depends(get_db)
+):
+    """YourModel 목록 조회"""
+    from app.models import YourModel
+    query = db.query(YourModel)
+    if sheet_id:
+        query = query.filter(YourModel.sheet_id == sheet_id)
+    items = query.offset(skip).limit(limit).all()
+    return items
+
+@router.post("/sheets/{sheet_id}/extract-your-data", response_model=List[YourModelResponse])
+async def extract_your_data_from_sheet(
+    sheet_id: int,
+    db: Session = Depends(get_db)
+):
+    """시트에서 YourModel 데이터를 추출하여 저장"""
+    sheet = data_service.get_sheet_data(db=db, sheet_id=sheet_id)
+    if not sheet:
+        raise HTTPException(status_code=404, detail="시트를 찾을 수 없습니다.")
+    
+    items = data_service.extract_and_save_your_data_from_data_record(db=db, sheet_id=sheet_id)
+    return items
+```
+
+#### 6. 스케줄러 통합
+
+**위치:** `backend/app/services/scheduler_service.py`
+
+```python
+def sync_your_data_from_data_records():
+    """
+    모든 시트를 스캔하여 your_table을 업데이트합니다.
+    주기적으로 실행되는 함수입니다.
+    """
+    db: Session = SessionLocal()
+    try:
+        logger.info("=== YourData 동기화 시작 ===")
+        
+        sheets = db.query(SheetData).all()
+        logger.info(f"총 {len(sheets)}개의 시트를 확인합니다.")
+        
+        updated_count = 0
+        created_count = 0
+        
+        for sheet in sheets:
+            try:
+                items = data_service.extract_and_save_your_data_from_data_record(
+                    db=db,
+                    sheet_id=sheet.id
+                )
+                
+                for item in items:
+                    existing = db.query(YourModel).filter(
+                        YourModel.sheet_id == sheet.id,
+                        YourModel.unique_field == item.unique_field,
+                        YourModel.id != item.id
+                    ).first()
+                    
+                    if existing:
+                        updated_count += 1
+                    else:
+                        created_count += 1
+                        
+            except Exception as e:
+                logger.error(f"시트 {sheet.id} 처리 중 오류: {str(e)}", exc_info=True)
+                continue
+        
+        logger.info(
+            f"=== YourData 동기화 완료 - 생성: {created_count}, 업데이트: {updated_count} ==="
+        )
+        
+    except Exception as e:
+        logger.error(f"YourData 동기화 중 오류 발생: {str(e)}", exc_info=True)
+    finally:
+        db.close()
+
+def start_scheduler(interval_seconds: int = 30):
+    # ... 기존 코드 ...
+    
+    scheduler.add_job(
+        sync_your_data_from_data_records,
+        trigger=IntervalTrigger(seconds=interval_seconds),
+        id='sync_your_data',
+        name='YourData 동기화',
+        replace_existing=True
+    )
+```
+
+#### 7. 프론트엔드 - 타입 정의
+
+**위치:** `frontend/src/types/index.ts`
+
+```typescript
+export interface YourModel {
+  id: number;
+  field: string;
+  numeric_value: number | null;
+  data_record_id: number | null;
+  created_at: string;
+  updated_at: string;
+}
+```
+
+#### 8. 프론트엔드 - API 함수
+
+**위치:** `frontend/src/lib/api.ts`
+
+```typescript
+export async function getYourModels(sheetId?: number): Promise<YourModel[]> {
+  const url = sheetId 
+    ? `/api/your-models?sheet_id=${sheetId}`
+    : '/api/your-models';
+  return fetchAPI<YourModel[]>(url);
+}
+
+export async function extractYourDataFromSheet(sheetId: number): Promise<YourModel[]> {
+  return fetchAPI<YourModel[]>(`/api/sheets/${sheetId}/extract-your-data`, {
+    method: 'POST',
+  });
+}
+```
+
+#### 9. 프론트엔드 - 컴포넌트 생성
+
+**위치:** `frontend/src/components/YourDataStatus.tsx`
+
+```typescript
+import { useQuery } from '@tanstack/react-query';
+import { getYourModels } from '@/lib/api';
+import YourDataCharts from './YourDataCharts'; // 차트 컴포넌트 (선택사항)
+
+function YourDataStatus() {
+  const { data: items = [], isLoading, error } = useQuery({
+    queryKey: ['yourModels'],
+    queryFn: () => getYourModels(),
+    refetchInterval: 30000, // 30초마다 자동 갱신
+  });
+
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h2 className="text-xl font-semibold mb-4">YourData</h2>
+        <p className="text-gray-500">로딩 중...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h2 className="text-xl font-semibold mb-4">YourData</h2>
+        <p className="text-red-500">데이터를 불러오는 중 오류가 발생했습니다.</p>
+      </div>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h2 className="text-xl font-semibold mb-4">YourData</h2>
+        <p className="text-gray-500">등록된 데이터가 없습니다.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-lg shadow-md p-6">
+      <h2 className="text-xl font-semibold mb-4">YourData</h2>
+      {/* 데이터 표시 또는 차트 */}
+      <YourDataCharts items={items} />
+      <div className="mt-4 pt-4 border-t border-gray-200">
+        <p className="text-xs text-gray-400 text-center">
+          데이터는 30초마다 자동으로 업데이트됩니다.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export default YourDataStatus;
+```
+
+#### 10. App.tsx 통합
+
+**위치:** `frontend/src/App.tsx`
+
+```typescript
+import YourDataStatus from './components/YourDataStatus';
+
+// 중간 시각화 영역에 추가
+<div className="lg:col-span-2">
+  {selectedUploadId ? (
+    <div className="space-y-6">
+      <DataVisualization uploadId={selectedUploadId} />
+      <YourDataStatus />
+    </div>
+  ) : (
+    <div className="space-y-6">
+      <div className="bg-white rounded-lg shadow-md p-12 text-center">
+        <p className="text-gray-500 text-lg">
+          왼쪽에서 업로드 이력을 선택하여 데이터를 시각화하세요
+        </p>
+      </div>
+      <YourDataStatus />
+    </div>
+  )}
+</div>
+```
+
+### 공통 규칙 및 주의사항
+
+1. **타입 안전성**
+   - Excel 데이터는 다양한 타입(int, float, str)으로 올 수 있으므로 항상 타입 체크 후 변환
+   - `isinstance()` 체크 필수
+
+2. **데이터 필터링**
+   - 요약 행, 헤더, 섹션 제목 등은 제외
+   - 숫자만 있는 행 제외
+   - 섹션 헤더 패턴 제외 (예: "3.재무현황")
+
+3. **에러 처리**
+   - 각 시트 처리 시 try-except로 개별 에러 처리
+   - 전체 동기화 실패를 방지하기 위해 continue 사용
+
+4. **성능**
+   - 스케줄러는 기본 30초 주기 (환경변수로 조정 가능)
+   - 대량 데이터 처리 시 배치 처리 고려
+
+5. **마이그레이션**
+   - 순차적 번호 사용 (001, 002, 003...)
+   - `alembic/env.py`에 새 모델 import 필수
+
+6. **프론트엔드**
+   - 30초마다 자동 갱신 (스케줄러와 동기화)
+   - 로딩/에러 상태 처리 필수
+   - 차트 컴포넌트는 선택사항
+
+### 참고 예제
+
+- Customer 구현: `backend/app/services/data_service.py`의 `extract_and_save_customer_from_data_record()`
+- CashFlow 구현: `backend/app/services/data_service.py`의 `extract_and_save_cash_flows_from_data_record()`
+
