@@ -32,6 +32,18 @@ export interface UploadResponse {
   message: string;
 }
 
+export interface Customer {
+  id: number;
+  name: string;
+  gender: string | null;
+  age: number | null;
+  credit_score: number | null;
+  email: string | null;
+  data_record_id: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // 뱅샐현황 관련 타입
 export type {
   CashFlowItem,
