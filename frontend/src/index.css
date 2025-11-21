@@ -1,25 +1,153 @@
 @import "tailwindcss";
 
+/* Material Design 3 Color Variables */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Surface Colors */
+  --md-sys-light-surface: #141218;
+  --md-sys-light-surface-container-lowest: #0F0D13;
+  --md-sys-light-surface-container-high: #2B292F;
+  --md-sys-light-surface-container: #211F24;
+
+  /* Secondary Colors */
+  --md-sys-light-secondary-container: #9887C5;
+  --md-sys-light-secondary: #D3C1FF;
+  --md-sys-light-on-secondary-container: #000000;
+  --md-sys-light-on-secondary: #1B0942;
+
+  /* Text Colors */
+  --md-sys-light-on-surface: #FFF9FF;
+  --md-sys-light-on-surface-variant: #CEC8D4;
+
+  /* Outline Colors */
+  --md-sys-light-outline: #A6A1AB;
+  --md-sys-light-outline-variant: #86818B;
+
+  /* Primary Colors (for focus/accents) */
+  --md-sys-light-primary: #6750A4;
+  --md-sys-light-on-primary: #FFFFFF;
+
+  /* Spacing Variables */
+  --md-space-xs: 4px;
+  --md-space-sm: 8px;
+  --md-space-md: 16px;
+  --md-space-lg: 24px;
+  --md-space-xl: 32px;
+
+  /* Border Radius Variables */
+  --md-radius-xs: 4px;
+  --md-radius-sm: 8px;
+  --md-radius-md: 12px;
+  --md-radius-lg: 16px;
+  --md-radius-xl: 20px;
+  --md-radius-full: 100px;
+
+  /* Typography Variables */
+  --md-label-large: 500 14px/20px 'Roboto', 'Inter', system-ui, sans-serif;
+  --md-title-small: 500 14px/20px 'Roboto', 'Inter', system-ui, sans-serif;
+  --md-title-large: 400 22px/28px 'Roboto', 'Inter', system-ui, sans-serif;
+  --md-body-large: 400 16px/24px 'Roboto', 'Inter', system-ui, sans-serif;
+  --md-body-medium: 400 14px/20px 'Roboto', 'Inter', system-ui, sans-serif;
+  --md-label-small: 500 11px/16px 'Roboto', 'Inter', system-ui, sans-serif;
+
+  /* Shadow Variables */
+  --md-shadow-soft: 0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04);
+  --md-shadow-medium: 0 4px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --md-shadow-large: 0 10px 40px -10px rgba(0, 0, 0, 0.1), 0 20px 25px -5px rgba(0, 0, 0, 0.04);
+
+  /* Legacy variables for compatibility */
+  --background: var(--md-sys-light-surface);
+  --foreground: var(--md-sys-light-on-surface);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-background: var(--md-sys-light-surface);
+  --color-foreground: var(--md-sys-light-on-surface);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--md-sys-light-surface);
+  color: var(--md-sys-light-on-surface);
+  font-family: 'Inter', 'Roboto', system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+/* Custom Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--md-sys-light-surface-container);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--md-sys-light-outline-variant);
+  border-radius: var(--md-radius-xs);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--md-sys-light-outline);
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 

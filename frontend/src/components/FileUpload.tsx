@@ -80,11 +80,18 @@ export default function FileUpload({ onUploadSuccess }: FileUploadProps) {
   return (
     <div>
       <div
-        className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-          isDragging
-            ? 'border-blue-500 bg-blue-50'
-            : 'border-gray-300 hover:border-gray-400 bg-gray-50'
-        } ${uploadMutation.isPending ? 'opacity-50 cursor-not-allowed' : ''}`}
+        style={{
+          border: `2px dashed ${isDragging ? 'var(--md-sys-light-secondary-container)' : 'var(--md-sys-light-outline-variant)'}`,
+          borderRadius: 'var(--md-radius-lg)',
+          padding: 'var(--md-space-xl)',
+          textAlign: 'center',
+          cursor: uploadMutation.isPending ? 'not-allowed' : 'pointer',
+          transition: 'all 0.2s ease',
+          backgroundColor: isDragging
+            ? 'color-mix(in srgb, var(--md-sys-light-secondary-container) 10%, transparent)'
+            : 'var(--md-sys-light-surface-container-high)',
+          opacity: uploadMutation.isPending ? 0.5 : 1,
+        }}
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -96,19 +103,30 @@ export default function FileUpload({ onUploadSuccess }: FileUploadProps) {
           type="file"
           accept=".xlsx,.xls"
           onChange={handleFileSelect}
-          className="hidden"
+          style={{ display: 'none' }}
           disabled={uploadMutation.isPending}
         />
         
         {uploadMutation.isPending ? (
-          <div className="space-y-2">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-            <p className="text-gray-600">업로드 중...</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--md-space-sm)', alignItems: 'center' }}>
+            <div
+              style={{
+                width: '32px',
+                height: '32px',
+                border: '2px solid var(--md-sys-light-secondary-container)',
+                borderTopColor: 'transparent',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite',
+              }}
+            />
+            <p style={{ font: 'var(--md-body-medium)', color: 'var(--md-sys-light-on-surface-variant)' }}>
+              업로드 중...
+            </p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--md-space-sm)', alignItems: 'center' }}>
             <svg
-              className="mx-auto h-12 w-12 text-gray-400"
+              style={{ width: '48px', height: '48px', color: 'var(--md-sys-light-on-surface-variant)' }}
               stroke="currentColor"
               fill="none"
               viewBox="0 0 48 48"
@@ -120,22 +138,44 @@ export default function FileUpload({ onUploadSuccess }: FileUploadProps) {
                 strokeLinejoin="round"
               />
             </svg>
-            <p className="text-gray-600">
+            <p style={{ font: 'var(--md-body-medium)', color: 'var(--md-sys-light-on-surface)' }}>
               파일을 드래그 앤 드롭하거나 클릭하여 선택하세요
             </p>
-            <p className="text-sm text-gray-500">.xlsx, .xls 파일만 지원됩니다</p>
+            <p style={{ font: 'var(--md-label-small)', color: 'var(--md-sys-light-on-surface-variant)' }}>
+              .xlsx, .xls 파일만 지원됩니다
+            </p>
           </div>
         )}
       </div>
 
       {error && (
-        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+        <div
+          style={{
+            marginTop: 'var(--md-space-md)',
+            padding: 'var(--md-space-md)',
+            backgroundColor: 'rgba(186, 26, 26, 0.15)',
+            border: '1px solid rgba(186, 26, 26, 0.3)',
+            borderRadius: 'var(--md-radius-md)',
+            color: '#EFB8B8',
+            font: 'var(--md-label-small)',
+          }}
+        >
           {error}
         </div>
       )}
 
       {success && (
-        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded text-green-700 text-sm">
+        <div
+          style={{
+            marginTop: 'var(--md-space-md)',
+            padding: 'var(--md-space-md)',
+            backgroundColor: 'rgba(76, 175, 80, 0.15)',
+            border: '1px solid rgba(76, 175, 80, 0.3)',
+            borderRadius: 'var(--md-radius-md)',
+            color: '#A5D6A7',
+            font: 'var(--md-label-small)',
+          }}
+        >
           {success}
         </div>
       )}
