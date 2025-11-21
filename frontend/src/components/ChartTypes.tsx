@@ -17,6 +17,7 @@ import {
 import type { SheetWithData } from '@/types';
 import { getMonthlyAggregation } from '@/utils/dataAnalysis';
 import { formatMonth } from '@/utils/dateUtils';
+import { parseCashFlow } from '@/utils/bankStatusParser';
 import BankStatusCharts from './BankStatusCharts';
 
 interface ChartTypesProps {
@@ -25,19 +26,30 @@ interface ChartTypesProps {
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
-export default function ChartTypes({ data }: ChartTypesProps) {
-  // 뱅샐현황 또는 뱅생현황 시트인지 확인
-  const isBankStatusSheet = useMemo(() => {
-    const sheetName = data.sheet.sheet_name;
-    return sheetName === '뱅샐현황' || sheetName === '뱅생현황';
-  }, [data.sheet.sheet_name]);
-
-  // 뱅샐현황 시트인 경우 BankStatusCharts 사용
-  if (isBankStatusSheet) {
-    return <BankStatusCharts data={data} />;
+/**
+ * 데이터 구조를 분석해서 차트 타입을 자동으로 감지
+ * 시트 이름이 아닌 데이터 구조 기반으로 판단
+ */
+function detectChartType(data: SheetWithData): 'bankStatus' | 'default' {
+  // bankStatusParser가 파싱 가능한 구조인지 확인
+  // parseCashFlow가 성공하면 뱅샐현황 구조로 판단
+  const cashFlowData = parseCashFlow(data);
+  if (cashFlowData) {
+    return 'bankStatus';
   }
+  return 'default';
+}
 
-  // 월별 집계 데이터
+export default function ChartTypes({ data }: ChartTypesProps) {
+  // 데이터 구조 기반으로 차트 타입 자동 감지 (시트 이름 무관)
+  const chartType = useMemo(() => {
+    return detectChartType(data);
+  }, [data]);
+
+  // 뱅샐현황 구조인 경우 BankStatusCharts 사용
+  const shouldUseBankStatusCharts = chartType === 'bankStatus';
+
+  // 월별 집계 데이터 (모든 훅을 조건부 return 전에 호출해야 함)
   const monthlyData = useMemo(() => {
     return getMonthlyAggregation(data);
   }, [data]);
@@ -88,6 +100,11 @@ export default function ChartTypes({ data }: ChartTypesProps) {
       .sort((a, b) => b.value - a.value)
       .slice(0, 10); // 상위 10개만
   }, [data.records]);
+
+  // 뱅샐현황 구조인 경우 BankStatusCharts 사용 (모든 훅 호출 후에 조건부 렌더링)
+  if (shouldUseBankStatusCharts) {
+    return <BankStatusCharts data={data} />;
+  }
 
   // 월별 차트나 기존 차트 중 하나라도 있으면 표시
   const hasAnyChart = monthlyChartData.length > 0 || chartData.length > 0;
