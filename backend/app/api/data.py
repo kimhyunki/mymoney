@@ -7,7 +7,8 @@ from app.schemas.schemas import (
     UploadHistoryResponse,
     SheetDataResponse,
     DataRecordResponse,
-    SheetWithDataResponse
+    SheetWithDataResponse,
+    CustomerResponse
 )
 
 router = APIRouter()
@@ -64,4 +65,31 @@ async def get_sheet_with_data(
         sheet=sheet,
         records=records
     )
+
+@router.post("/sheets/{sheet_id}/extract-customer", response_model=CustomerResponse)
+async def extract_customer_from_sheet(
+    sheet_id: int,
+    db: Session = Depends(get_db)
+):
+    """시트에서 고객정보를 추출하여 customer 테이블에 저장"""
+    sheet = data_service.get_sheet_data(db=db, sheet_id=sheet_id)
+    if not sheet:
+        raise HTTPException(status_code=404, detail="시트를 찾을 수 없습니다.")
+    
+    customer = data_service.extract_and_save_customer_from_data_record(db=db, sheet_id=sheet_id)
+    if not customer:
+        raise HTTPException(status_code=404, detail="고객정보를 찾을 수 없습니다.")
+    
+    return customer
+
+@router.get("/customers", response_model=List[CustomerResponse])
+async def get_customers(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    """고객 목록 조회"""
+    from app.models import Customer
+    customers = db.query(Customer).offset(skip).limit(limit).all()
+    return customers
 
