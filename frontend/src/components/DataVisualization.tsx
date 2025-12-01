@@ -13,6 +13,41 @@ export default function DataVisualization({ uploadId }: DataVisualizationProps) 
   const { data: sheets = [], isLoading: sheetsLoading, error: sheetsError } = useSheets(uploadId);
   const { data: selectedSheet, isLoading: sheetDataLoading, isFetching: sheetDataFetching, error: sheetDataError } = useSheetData(selectedSheetId);
 
+  // 숫자 포맷팅 함수 (천 단위 구분자 추가)
+  const formatNumber = (value: any): string => {
+    if (value === null || value === undefined) {
+      return '';
+    }
+    
+    // 숫자인지 확인
+    if (typeof value === 'number') {
+      // 정수인 경우 천 단위 구분자 추가
+      if (Number.isInteger(value)) {
+        return value.toLocaleString('ko-KR');
+      }
+      // 소수점이 있는 경우 소수점 2자리까지 표시하고 천 단위 구분자 추가
+      return value.toLocaleString('ko-KR', { 
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2 
+      });
+    }
+    
+    // 문자열이지만 숫자로 변환 가능한 경우
+    const numValue = Number(value);
+    if (!isNaN(numValue) && value !== '') {
+      if (Number.isInteger(numValue)) {
+        return numValue.toLocaleString('ko-KR');
+      }
+      return numValue.toLocaleString('ko-KR', { 
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2 
+      });
+    }
+    
+    // 숫자가 아닌 경우 원본 문자열 반환
+    return String(value);
+  };
+
   // 첫 번째 시트 자동 선택
   useEffect(() => {
     if (sheets.length > 0 && !selectedSheetId) {
@@ -252,9 +287,10 @@ export default function DataVisualization({ uploadId }: DataVisualizationProps) 
                             whiteSpace: 'nowrap',
                             font: 'var(--md-label-small)',
                             color: 'var(--md-sys-light-on-surface)',
+                            textAlign: typeof value === 'number' || (typeof value === 'string' && !isNaN(Number(value)) && value !== '') ? 'right' : 'left',
                           }}
                         >
-                          {value !== null && value !== undefined ? String(value) : ''}
+                          {formatNumber(value)}
                         </td>
                       ))}
                     </tr>
