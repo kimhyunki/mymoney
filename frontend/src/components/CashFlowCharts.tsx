@@ -110,9 +110,9 @@ export default function CashFlowCharts({ cashFlows }: CashFlowChartsProps) {
     if (active && payload && payload.length) {
       return (
         <div className="bg-white p-3 border border-gray-300 rounded shadow-lg">
-          <p className="font-semibold mb-2">{label}</p>
+          <p className="font-semibold mb-2 text-gray-900">{label}</p>
           {payload.map((entry: any, index: number) => (
-            <p key={index} style={{ color: entry.color }} className="text-sm">
+            <p key={index} style={{ color: entry.color }} className="text-sm text-gray-700">
               {`${entry.name}: ${formatAmount(entry.value)}`}
             </p>
           ))}

@@ -60,9 +60,9 @@ export default function BankStatusCharts({ data }: BankStatusChartsProps) {
     if (active && payload && payload.length) {
       return (
         <div className="bg-white p-3 border border-gray-300 rounded shadow-lg">
-          <p className="font-semibold mb-2">{label}</p>
+          <p className="font-semibold mb-2 text-gray-900">{label}</p>
           {payload.map((entry: any, index: number) => (
-            <p key={index} style={{ color: entry.color }} className="text-sm">
+            <p key={index} style={{ color: entry.color }} className="text-sm text-gray-700">
               {`${entry.name}: ${formatAmount(entry.value)}`}
             </p>
           ))}
@@ -422,8 +422,8 @@ export default function BankStatusCharts({ data }: BankStatusChartsProps) {
                     if (active && payload && payload.length) {
                       return (
                         <div className="bg-white p-3 border border-gray-300 rounded shadow-lg">
-                          <p className="font-semibold mb-2">{payload[0].payload.name}</p>
-                          <p style={{ color: payload[0].color }} className="text-sm">
+                          <p className="font-semibold mb-2 text-gray-900">{payload[0].payload.name}</p>
+                          <p style={{ color: payload[0].color }} className="text-sm text-gray-700">
                             {`수익률: ${payload[0].value?.toFixed(2)}%`}
                           </p>
                         </div>
