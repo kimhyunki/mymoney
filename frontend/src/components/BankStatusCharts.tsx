@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   LineChart,
   Line,
@@ -14,7 +14,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import type { SheetWithData } from '@/types';
+import type { SheetWithData, ChartDetailData, DataRecord } from '@/types';
 import {
   parseCashFlow,
   parseFinancialStatus,
@@ -22,6 +22,7 @@ import {
   parseInvestmentStatus,
   parseLoanStatus,
 } from '@/utils/bankStatusParser';
+import ChartDetailModal from './ChartDetailModal';
 
 interface BankStatusChartsProps {
   data: SheetWithData;
@@ -41,11 +42,56 @@ const COLORS = [
 ];
 
 export default function BankStatusCharts({ data }: BankStatusChartsProps) {
+  const [modalData, setModalData] = useState<ChartDetailData | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   const cashFlowData = useMemo(() => parseCashFlow(data), [data]);
   const financialData = useMemo(() => parseFinancialStatus(data), [data]);
   const insuranceData = useMemo(() => parseInsuranceStatus(data), [data]);
   const investmentData = useMemo(() => parseInvestmentStatus(data), [data]);
   const loanData = useMemo(() => parseLoanStatus(data), [data]);
+
+  // 모달 열기/닫기 함수
+  const openModal = (detailData: ChartDetailData) => {
+    setModalData(detailData);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setModalData(null);
+  };
+
+  // 데이터 매칭 함수들
+  const findRecordsByMonth = (month: string): DataRecord[] => {
+    return data.records.filter((record) => {
+      const values = Object.values(record.data);
+      return values.some((val) => {
+        const str = String(val);
+        return str.includes(month) || str.includes(month.replace('-', '/'));
+      });
+    });
+  };
+
+  const findRecordsByName = (name: string): DataRecord[] => {
+    return data.records.filter((record) => {
+      const values = Object.values(record.data);
+      return values.some((val) => {
+        const str = String(val).trim();
+        return str === name || str.includes(name) || name.includes(str);
+      });
+    });
+  };
+
+  const findRecordsByProductName = (productName: string): DataRecord[] => {
+    return data.records.filter((record) => {
+      const values = Object.values(record.data);
+      return values.some((val) => {
+        const str = String(val).trim();
+        return str === productName || str.includes(productName) || productName.includes(str);
+      });
+    });
+  };
 
   // 금액 포맷팅 함수
   const formatAmount = (value: number) => {
@@ -80,6 +126,60 @@ export default function BankStatusCharts({ data }: BankStatusChartsProps) {
     return String(value);
   };
 
+  // 클릭 핸들러들
+  const handleMonthlyClick = (data: any) => {
+    // Recharts의 LineChart onClick은 차트 영역을 클릭했을 때 호출됨
+    // data는 클릭된 데이터 포인트의 정보를 담고 있음
+    if (data && data.month) {
+      const records = findRecordsByMonth(data.month);
+      openModal({
+        title: '월별 현금흐름 상세',
+        label: data.month,
+        month: data.month,
+        records,
+      });
+    }
+  };
+
+  const handleItemClick = (itemName: string, value?: number) => {
+    const records = findRecordsByName(itemName);
+    openModal({
+      title: '항목 상세',
+      label: itemName,
+      itemName,
+      value,
+      records,
+    });
+  };
+
+  const handleProductClick = (productName: string, value?: number) => {
+    const records = findRecordsByProductName(productName);
+    openModal({
+      title: '상품 상세',
+      label: productName,
+      itemName: productName,
+      value,
+      records,
+    });
+  };
+
+  const handleCategoryClick = (category: string, value: number) => {
+    const records = data.records.filter((record) => {
+      const values = Object.values(record.data);
+      return values.some((val) => {
+        const str = String(val).trim();
+        return str === category || str.includes(category) || category.includes(str);
+      });
+    });
+    openModal({
+      title: '카테고리 상세',
+      label: category,
+      category,
+      value,
+      records,
+    });
+  };
+
   return (
     <div className="space-y-8">
       {/* 현금흐름현황 차트 */}
@@ -108,14 +208,27 @@ export default function BankStatusCharts({ data }: BankStatusChartsProps) {
                     순수입: income - expense,
                   };
                 })}
+                onClick={handleMonthlyClick}
               >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" angle={-45} textAnchor="end" height={80} />
                 <YAxis tickFormatter={formatYAxis} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend />
-                <Line type="monotone" dataKey="수입" stroke="#00C49F" strokeWidth={2} name="수입" />
-                <Line type="monotone" dataKey="지출" stroke="#FF8042" strokeWidth={2} name="지출" />
+                <Line 
+                  type="monotone" 
+                  dataKey="수입" 
+                  stroke="#00C49F" 
+                  strokeWidth={2} 
+                  name="수입"
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="지출" 
+                  stroke="#FF8042" 
+                  strokeWidth={2} 
+                  name="지출"
+                />
                 <Line
                   type="monotone"
                   dataKey="순수입"
@@ -153,6 +266,13 @@ export default function BankStatusCharts({ data }: BankStatusChartsProps) {
                       dataKey={item.name}
                       fill={COLORS[index % COLORS.length]}
                       name={item.name}
+                      onClick={(data: any) => {
+                        if (data && data.month) {
+                          handleMonthlyClick(data);
+                        } else if (data && data.name) {
+                          handleItemClick(data.name, data[item.name]);
+                        }
+                      }}
                     />
                   ))}
                 </BarChart>
@@ -185,6 +305,13 @@ export default function BankStatusCharts({ data }: BankStatusChartsProps) {
                       dataKey={item.name}
                       fill={COLORS[index % COLORS.length]}
                       name={item.name}
+                      onClick={(data: any) => {
+                        if (data && data.month) {
+                          handleMonthlyClick(data);
+                        } else if (data && data.name) {
+                          handleItemClick(data.name, data[item.name]);
+                        }
+                      }}
                     />
                   ))}
                 </BarChart>
@@ -222,6 +349,12 @@ export default function BankStatusCharts({ data }: BankStatusChartsProps) {
                     outerRadius={120}
                     fill="#8884d8"
                     dataKey="value"
+                    onClick={(data: any, index?: number, e?: any) => {
+                      // Recharts의 Pie onClick은 (data, index, e) 형식으로 호출됨
+                      if (data && data.name) {
+                        handleCategoryClick(data.name, data.value);
+                      }
+                    }}
                   >
                     {Object.entries(
                       financialData.assets.reduce((acc, item) => {
@@ -253,6 +386,7 @@ export default function BankStatusCharts({ data }: BankStatusChartsProps) {
                     .slice(0, 10)
                     .map((item) => ({
                       name: item.productName.length > 20 ? item.productName.substring(0, 20) + '...' : item.productName,
+                      fullName: item.productName,
                       금액: item.amount,
                     }))}
                 >
@@ -260,7 +394,16 @@ export default function BankStatusCharts({ data }: BankStatusChartsProps) {
                   <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
                   <YAxis tickFormatter={formatYAxis} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="금액" fill="#8884d8" name="금액" />
+                  <Bar 
+                    dataKey="금액" 
+                    fill="#8884d8" 
+                    name="금액"
+                    onClick={(data: any) => {
+                      if (data && data.fullName) {
+                        handleProductClick(data.fullName, data.금액);
+                      }
+                    }}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -276,6 +419,7 @@ export default function BankStatusCharts({ data }: BankStatusChartsProps) {
                     .filter((item) => item.amount > 0)
                     .map((item) => ({
                       name: item.productName.length > 20 ? item.productName.substring(0, 20) + '...' : item.productName,
+                      fullName: item.productName,
                       금액: item.amount,
                     }))}
                 >
@@ -283,7 +427,16 @@ export default function BankStatusCharts({ data }: BankStatusChartsProps) {
                   <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
                   <YAxis tickFormatter={formatYAxis} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="금액" fill="#FF8042" name="금액" />
+                  <Bar 
+                    dataKey="금액" 
+                    fill="#FF8042" 
+                    name="금액"
+                    onClick={(data: any) => {
+                      if (data && data.fullName) {
+                        handleProductClick(data.fullName, data.금액);
+                      }
+                    }}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -550,6 +703,7 @@ export default function BankStatusCharts({ data }: BankStatusChartsProps) {
           뱅샐현황 데이터를 파싱할 수 없습니다.
         </div>
       )}
+      <ChartDetailModal isOpen={isModalOpen} onClose={closeModal} data={modalData} />
     </div>
   );
 }

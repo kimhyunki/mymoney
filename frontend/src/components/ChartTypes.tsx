@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   LineChart,
   Line,
@@ -14,11 +14,12 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import type { SheetWithData } from '@/types';
+import type { SheetWithData, ChartDetailData, DataRecord } from '@/types';
 import { getMonthlyAggregation } from '@/utils/dataAnalysis';
 import { formatMonth } from '@/utils/dateUtils';
 import { parseCashFlow } from '@/utils/bankStatusParser';
 import BankStatusCharts from './BankStatusCharts';
+import ChartDetailModal from './ChartDetailModal';
 
 interface ChartTypesProps {
   data: SheetWithData;
@@ -41,6 +42,9 @@ function detectChartType(data: SheetWithData): 'bankStatus' | 'default' {
 }
 
 export default function ChartTypes({ data }: ChartTypesProps) {
+  const [modalData, setModalData] = useState<ChartDetailData | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   // 데이터 구조 기반으로 차트 타입 자동 감지 (시트 이름 무관)
   const chartType = useMemo(() => {
     return detectChartType(data);
@@ -48,6 +52,55 @@ export default function ChartTypes({ data }: ChartTypesProps) {
 
   // 뱅샐현황 구조인 경우 BankStatusCharts 사용
   const shouldUseBankStatusCharts = chartType === 'bankStatus';
+
+  // 모달 열기/닫기 함수
+  const openModal = (detailData: ChartDetailData) => {
+    setModalData(detailData);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setModalData(null);
+  };
+
+  // 데이터 매칭 함수들
+  const findRecordsByMonth = (monthKey: string): DataRecord[] => {
+    // monthKey 형식: "YYYY-MM" (예: "2024-11")
+    return data.records.filter((record) => {
+      const values = Object.values(record.data);
+      // 날짜 컬럼에서 해당 월을 포함하는 레코드 찾기
+      return values.some((val) => {
+        const str = String(val);
+        return str.includes(monthKey) || str.includes(monthKey.replace('-', '/'));
+      });
+    });
+  };
+
+  const findRecordsByName = (name: string): DataRecord[] => {
+    return data.records.filter((record) => {
+      const values = Object.values(record.data);
+      // 첫 번째 컬럼이나 다른 컬럼에서 이름이 일치하는 레코드 찾기
+      return values.some((val) => {
+        const str = String(val).trim();
+        return str === name || str.includes(name) || name.includes(str);
+      });
+    });
+  };
+
+  const findRecordsByValue = (value: number): DataRecord[] => {
+    return data.records.filter((record) => {
+      const values = Object.values(record.data);
+      // 숫자 값이 일치하는 레코드 찾기 (소수점 오차 허용)
+      return values.some((val) => {
+        if (typeof val === 'number') {
+          return Math.abs(val - value) < 0.01;
+        }
+        const numVal = Number(val);
+        return !isNaN(numVal) && Math.abs(numVal - value) < 0.01;
+      });
+    });
+  };
 
   // 월별 집계 데이터 (모든 훅을 조건부 return 전에 호출해야 함)
   const monthlyData = useMemo(() => {
@@ -142,127 +195,185 @@ export default function ChartTypes({ data }: ChartTypesProps) {
     return null;
   };
 
-  return (
-    <div className="space-y-6">
-      {/* 월별 집계 차트 */}
-      {monthlyChartData.length > 0 && (
-        <>
-          <div>
-            <h3 className="text-lg font-semibold mb-3">월별 수입/지출 추이</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={monthlyChartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="month" 
-                  angle={-45}
-                  textAnchor="end"
-                  height={80}
-                />
-                <YAxis 
-                  tickFormatter={(value) => {
-                    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-                    if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
-                    return String(value);
-                  }}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend />
-                <Line 
-                  type="monotone" 
-                  dataKey="수입" 
-                  stroke="#00C49F" 
-                  strokeWidth={2}
-                  name="수입"
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="지출" 
-                  stroke="#FF8042" 
-                  strokeWidth={2}
-                  name="지출"
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="순수익" 
-                  stroke="#8884d8" 
-                  strokeWidth={2}
-                  strokeDasharray="5 5"
-                  name="순수익"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+  // 월별 차트 클릭 핸들러
+  const handleMonthlyChartClick = (data: any) => {
+    // Recharts의 LineChart/BarChart onClick은 차트 영역을 클릭했을 때 호출됨
+    // data는 클릭된 데이터 포인트의 정보를 담고 있음
+    if (data && (data.monthKey || data.month)) {
+      const monthKey = data.monthKey || data.month;
+      const records = findRecordsByMonth(monthKey);
+      openModal({
+        title: '월별 데이터 상세',
+        label: data.month || monthKey,
+        month: monthKey,
+        records,
+      });
+    }
+  };
 
-          <div>
-            <h3 className="text-lg font-semibold mb-3">월별 수입/지출 합계</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={monthlyChartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="month" 
-                  angle={-45}
-                  textAnchor="end"
-                  height={80}
-                />
-                <YAxis 
-                  tickFormatter={(value) => {
-                    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-                    if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
-                    return String(value);
-                  }}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend />
-                <Bar dataKey="수입" fill="#00C49F" name="수입" />
-                <Bar dataKey="지출" fill="#FF8042" name="지출" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </>
-      )}
+  // 일반 차트 클릭 핸들러
+  const handleChartClick = (data: any) => {
+    // Recharts의 LineChart/BarChart onClick은 차트 영역을 클릭했을 때 호출됨
+    if (data && data.name) {
+      const records = findRecordsByName(data.name);
+      openModal({
+        title: '차트 데이터 상세',
+        label: data.name,
+        value: data.value || data.value2 || data.value3,
+        itemName: data.name,
+        records,
+      });
+    }
+  };
+
+  // 파이 차트 클릭 핸들러
+  const handlePieChartClick = (data: any, index?: number, e?: any) => {
+    // Recharts의 Pie onClick은 (data, index, e) 형식으로 호출됨
+    // data는 클릭된 섹션의 데이터를 담고 있음
+    if (data && data.name) {
+      const value = Number(data.name);
+      if (!isNaN(value)) {
+        const records = findRecordsByValue(value);
+        openModal({
+          title: '파이 차트 데이터 상세',
+          label: data.name,
+          value: value,
+          records,
+        });
+      } else {
+        const records = findRecordsByName(data.name);
+        openModal({
+          title: '파이 차트 데이터 상세',
+          label: data.name,
+          value: data.value,
+          records,
+        });
+      }
+    }
+  };
+
+  return (
+    <>
+      <div className="space-y-6">
+        {/* 월별 집계 차트 */}
+        {monthlyChartData.length > 0 && (
+          <>
+            <div>
+              <h3 className="text-lg font-semibold mb-3">월별 수입/지출 추이</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={monthlyChartData} onClick={handleMonthlyChartClick}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="month" 
+                    angle={-45}
+                    textAnchor="end"
+                    height={80}
+                  />
+                  <YAxis 
+                    tickFormatter={(value) => {
+                      if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+                      if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
+                      return String(value);
+                    }}
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend />
+                  <Line 
+                    type="monotone" 
+                    dataKey="수입" 
+                    stroke="#00C49F" 
+                    strokeWidth={2}
+                    name="수입"
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="지출" 
+                    stroke="#FF8042" 
+                    strokeWidth={2}
+                    name="지출"
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="순수익" 
+                    stroke="#8884d8" 
+                    strokeWidth={2}
+                    strokeDasharray="5 5"
+                    name="순수익"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold mb-3">월별 수입/지출 합계</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={monthlyChartData} onClick={handleMonthlyChartClick}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="month" 
+                    angle={-45}
+                    textAnchor="end"
+                    height={80}
+                  />
+                  <YAxis 
+                    tickFormatter={(value) => {
+                      if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+                      if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
+                      return String(value);
+                    }}
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend />
+                  <Bar dataKey="수입" fill="#00C49F" name="수입" />
+                  <Bar dataKey="지출" fill="#FF8042" name="지출" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </>
+        )}
 
       {/* 기존 차트 */}
       {chartData.length > 0 && (
         <>
           <div>
             <h3 className="text-lg font-semibold mb-3">라인 차트</h3>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Line type="monotone" dataKey="value" stroke="#8884d8" name="값 1" />
-            {chartData.some((d) => d.value2 !== 0) && (
-              <Line type="monotone" dataKey="value2" stroke="#82ca9d" name="값 2" />
-            )}
-            {chartData.some((d) => d.value3 !== 0) && (
-              <Line type="monotone" dataKey="value3" stroke="#ffc658" name="값 3" />
-            )}
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={chartData} onClick={handleChartClick}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="value" stroke="#8884d8" name="값 1" />
+                {chartData.some((d) => d.value2 !== 0) && (
+                  <Line type="monotone" dataKey="value2" stroke="#82ca9d" name="값 2" />
+                )}
+                {chartData.some((d) => d.value3 !== 0) && (
+                  <Line type="monotone" dataKey="value3" stroke="#ffc658" name="값 3" />
+                )}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
 
-      <div>
-        <h3 className="text-lg font-semibold mb-3">바 차트</h3>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Bar dataKey="value" fill="#8884d8" name="값 1" />
-            {chartData.some((d) => d.value2 !== 0) && (
-              <Bar dataKey="value2" fill="#82ca9d" name="값 2" />
-            )}
-            {chartData.some((d) => d.value3 !== 0) && (
-              <Bar dataKey="value3" fill="#ffc658" name="값 3" />
-            )}
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+          <div>
+            <h3 className="text-lg font-semibold mb-3">바 차트</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={chartData} onClick={handleChartClick}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="value" fill="#8884d8" name="값 1" />
+                {chartData.some((d) => d.value2 !== 0) && (
+                  <Bar dataKey="value2" fill="#82ca9d" name="값 2" />
+                )}
+                {chartData.some((d) => d.value3 !== 0) && (
+                  <Bar dataKey="value3" fill="#ffc658" name="값 3" />
+                )}
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
 
           {pieData.length > 0 && (
             <div>
@@ -278,6 +389,7 @@ export default function ChartTypes({ data }: ChartTypesProps) {
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
+                    onClick={handlePieChartClick}
                   >
                     {pieData.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -290,7 +402,9 @@ export default function ChartTypes({ data }: ChartTypesProps) {
           )}
         </>
       )}
-    </div>
+      </div>
+      <ChartDetailModal isOpen={isModalOpen} onClose={closeModal} data={modalData} />
+    </>
   );
 }
 

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   LineChart,
   Line,
@@ -14,7 +14,8 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import type { CashFlow } from '@/types';
+import type { CashFlow, ChartDetailData, DataRecord } from '@/types';
+import ChartDetailModal from './ChartDetailModal';
 
 interface CashFlowChartsProps {
   cashFlows: CashFlow[];
@@ -34,6 +35,9 @@ const COLORS = [
 ];
 
 export default function CashFlowCharts({ cashFlows }: CashFlowChartsProps) {
+  const [modalData, setModalData] = useState<ChartDetailData | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   // 수입과 지출로 분류
   const incomeItems = useMemo(
     () => cashFlows.filter((item) => item.item_type === '수입'),
@@ -43,6 +47,54 @@ export default function CashFlowCharts({ cashFlows }: CashFlowChartsProps) {
     () => cashFlows.filter((item) => item.item_type === '지출'),
     [cashFlows]
   );
+
+  // 모달 열기/닫기 함수
+  const openModal = (detailData: ChartDetailData) => {
+    setModalData(detailData);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setModalData(null);
+  };
+
+  // CashFlow에서 관련 레코드 찾기 (data_record_id 기반)
+  const findCashFlowRecords = (itemName: string, month?: string): DataRecord[] => {
+    // CashFlow 객체에서 해당 항목 찾기
+    const matchingCashFlow = cashFlows.find((cf) => cf.item_name === itemName);
+    if (!matchingCashFlow || !matchingCashFlow.data_record_id) {
+      return [];
+    }
+    
+    // 원본 레코드가 없으므로 빈 배열 반환 (모달에서 메시지 표시)
+    // 실제로는 상위 컴포넌트에서 SheetWithData를 전달받아야 함
+    return [];
+  };
+
+  // 클릭 핸들러들
+  const handleMonthlyClick = (data: any) => {
+    // Recharts의 LineChart/BarChart onClick은 차트 영역을 클릭했을 때 호출됨
+    if (data && data.month) {
+      openModal({
+        title: '월별 현금흐름 상세',
+        label: data.month,
+        month: data.month,
+        records: [], // 원본 레코드가 없음
+      });
+    }
+  };
+
+  const handleItemClick = (itemName: string, value?: number) => {
+    const records = findCashFlowRecords(itemName);
+    openModal({
+      title: '항목 상세',
+      label: itemName,
+      itemName,
+      value,
+      records,
+    });
+  };
 
   // 모든 월 수집
   const allMonths = useMemo(() => {
@@ -147,7 +199,7 @@ export default function CashFlowCharts({ cashFlows }: CashFlowChartsProps) {
         <div>
           <h3 className="text-lg font-semibold mb-3">월별 수입/지출 추이</h3>
           <ResponsiveContainer width="100%" height={400}>
-            <LineChart data={monthlySummary}>
+            <LineChart data={monthlySummary} onClick={handleMonthlyClick}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" angle={-45} textAnchor="end" height={80} />
               <YAxis tickFormatter={formatYAxis} />
@@ -185,7 +237,7 @@ export default function CashFlowCharts({ cashFlows }: CashFlowChartsProps) {
         <div>
           <h3 className="text-lg font-semibold mb-3">월별 수입/지출 합계</h3>
           <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={monthlySummary}>
+            <BarChart data={monthlySummary} onClick={handleMonthlyClick}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" angle={-45} textAnchor="end" height={80} />
               <YAxis tickFormatter={formatYAxis} />
@@ -215,6 +267,12 @@ export default function CashFlowCharts({ cashFlows }: CashFlowChartsProps) {
                 outerRadius={120}
                 fill="#8884d8"
                 dataKey="총계"
+                onClick={(data: any, index?: number, e?: any) => {
+                  // Recharts의 Pie onClick은 (data, index, e) 형식으로 호출됨
+                  if (data && data.name) {
+                    handleItemClick(data.name, data.총계);
+                  }
+                }}
               >
                 {incomeByItem.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -243,6 +301,12 @@ export default function CashFlowCharts({ cashFlows }: CashFlowChartsProps) {
                 outerRadius={120}
                 fill="#8884d8"
                 dataKey="총계"
+                onClick={(data: any, index?: number, e?: any) => {
+                  // Recharts의 Pie onClick은 (data, index, e) 형식으로 호출됨
+                  if (data && data.name) {
+                    handleItemClick(data.name, data.총계);
+                  }
+                }}
               >
                 {expenseByItem.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -259,7 +323,11 @@ export default function CashFlowCharts({ cashFlows }: CashFlowChartsProps) {
         <div>
           <h3 className="text-lg font-semibold mb-3">수입 항목별 총계</h3>
           <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={incomeByItem}>
+            <BarChart data={incomeByItem} onClick={(data: any) => {
+              if (data && data.name) {
+                handleItemClick(data.name, data.총계);
+              }
+            }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
                 dataKey="name"
@@ -269,7 +337,11 @@ export default function CashFlowCharts({ cashFlows }: CashFlowChartsProps) {
               />
               <YAxis tickFormatter={formatYAxis} />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="총계" fill="#00C49F" name="총계" />
+              <Bar 
+                dataKey="총계" 
+                fill="#00C49F" 
+                name="총계"
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -280,7 +352,11 @@ export default function CashFlowCharts({ cashFlows }: CashFlowChartsProps) {
         <div>
           <h3 className="text-lg font-semibold mb-3">지출 항목별 총계</h3>
           <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={expenseByItem}>
+            <BarChart data={expenseByItem} onClick={(data: any) => {
+              if (data && data.name) {
+                handleItemClick(data.name, data.총계);
+              }
+            }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
                 dataKey="name"
@@ -290,7 +366,11 @@ export default function CashFlowCharts({ cashFlows }: CashFlowChartsProps) {
               />
               <YAxis tickFormatter={formatYAxis} />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="총계" fill="#FF8042" name="총계" />
+              <Bar 
+                dataKey="총계" 
+                fill="#FF8042" 
+                name="총계"
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -309,6 +389,17 @@ export default function CashFlowCharts({ cashFlows }: CashFlowChartsProps) {
                 });
                 return result;
               })}
+            onClick={(data: any) => {
+              if (data && data.month) {
+                handleMonthlyClick(data);
+              } else if (data && data.name) {
+                // 항목 이름으로 찾기
+                const clickedItem = incomeItems.find(item => item.item_name === data.name);
+                if (clickedItem) {
+                  handleItemClick(clickedItem.item_name, data[clickedItem.item_name]);
+                }
+              }
+            }}
             >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" angle={-45} textAnchor="end" height={80} />
@@ -341,6 +432,17 @@ export default function CashFlowCharts({ cashFlows }: CashFlowChartsProps) {
                 });
                 return result;
               })}
+            onClick={(data: any) => {
+              if (data && data.month) {
+                handleMonthlyClick(data);
+              } else if (data && data.name) {
+                // 항목 이름으로 찾기
+                const clickedItem = expenseItems.find(item => item.item_name === data.name);
+                if (clickedItem) {
+                  handleItemClick(clickedItem.item_name, data[clickedItem.item_name]);
+                }
+              }
+            }}
             >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" angle={-45} textAnchor="end" height={80} />
@@ -359,6 +461,7 @@ export default function CashFlowCharts({ cashFlows }: CashFlowChartsProps) {
           </ResponsiveContainer>
         </div>
       )}
+      <ChartDetailModal isOpen={isModalOpen} onClose={closeModal} data={modalData} />
     </div>
   );
 }

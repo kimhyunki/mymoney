@@ -73,3 +73,14 @@ export type {
   LoanStatusData,
 } from '@/utils/bankStatusParser';
 
+// 차트 상세 정보 모달 관련 타입
+export interface ChartDetailData {
+  title: string;
+  label?: string;
+  value?: number | string;
+  month?: string;
+  itemName?: string;
+  category?: string;
+  records: DataRecord[];
+}
+
