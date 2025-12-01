@@ -136,3 +136,12 @@ async def extract_cash_flows_from_sheet(
     )
     return cash_flows
 
+@router.post("/data-records/by-ids", response_model=List[DataRecordResponse])
+async def get_records_by_ids(
+    record_ids: List[int],
+    db: Session = Depends(get_db)
+):
+    """레코드 ID 리스트로 레코드 조회"""
+    records = data_service.get_records_by_ids(db=db, record_ids=record_ids)
+    return records
+

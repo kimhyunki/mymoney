@@ -349,7 +349,7 @@ export default function BankStatusCharts({ data }: BankStatusChartsProps) {
                     outerRadius={120}
                     fill="#8884d8"
                     dataKey="value"
-                    onClick={(data: any, index?: number, e?: any) => {
+                    onClick={(data: any) => {
                       // Recharts의 Pie onClick은 (data, index, e) 형식으로 호출됨
                       if (data && data.name) {
                         handleCategoryClick(data.name, data.value);
@@ -471,6 +471,11 @@ export default function BankStatusCharts({ data }: BankStatusChartsProps) {
                   outerRadius={120}
                   fill="#8884d8"
                   dataKey="value"
+                  onClick={(data: any) => {
+                    if (data && data.name) {
+                      handleCategoryClick(data.name, data.value);
+                    }
+                  }}
                 >
                   {Object.entries(
                     insuranceData.items.reduce((acc, item) => {
@@ -500,6 +505,7 @@ export default function BankStatusCharts({ data }: BankStatusChartsProps) {
                   .slice(0, 10)
                   .map((item) => ({
                     name: item.name.length > 30 ? item.name.substring(0, 30) + '...' : item.name,
+                    fullName: item.name,
                     납입금: item.totalPaid,
                   }))}
               >
@@ -507,7 +513,16 @@ export default function BankStatusCharts({ data }: BankStatusChartsProps) {
                 <XAxis dataKey="name" angle={-45} textAnchor="end" height={120} />
                 <YAxis tickFormatter={formatYAxis} />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="납입금" fill="#00C49F" name="납입금" />
+                <Bar 
+                  dataKey="납입금" 
+                  fill="#00C49F" 
+                  name="납입금"
+                  onClick={(data: any) => {
+                    if (data && data.fullName) {
+                      handleProductClick(data.fullName, data.납입금);
+                    }
+                  }}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -540,6 +555,15 @@ export default function BankStatusCharts({ data }: BankStatusChartsProps) {
                   outerRadius={120}
                   fill="#8884d8"
                   dataKey="value"
+                  onClick={(data: any) => {
+                    if (data && data.name) {
+                      // 파이 차트의 name은 축약된 이름이므로 원본 데이터에서 찾아야 함
+                      const fullName = investmentData.items.find(
+                        (item) => item.productName.startsWith(data.name) || data.name.startsWith(item.productName.substring(0, 20))
+                      )?.productName || data.name;
+                      handleProductClick(fullName, data.value);
+                    }
+                  }}
                 >
                   {investmentData.items
                     .filter((item) => item.currentValue > 0)
@@ -563,6 +587,7 @@ export default function BankStatusCharts({ data }: BankStatusChartsProps) {
                   .sort((a, b) => b.returnRate - a.returnRate)
                   .map((item) => ({
                     name: item.productName.length > 20 ? item.productName.substring(0, 20) + '...' : item.productName,
+                    fullName: item.productName,
                     수익률: item.returnRate,
                     color: item.returnRate >= 0 ? '#00C49F' : '#FF8042',
                   }))}
@@ -585,7 +610,15 @@ export default function BankStatusCharts({ data }: BankStatusChartsProps) {
                     return null;
                   }}
                 />
-                <Bar dataKey="수익률" name="수익률">
+                <Bar 
+                  dataKey="수익률" 
+                  name="수익률"
+                  onClick={(data: any) => {
+                    if (data && data.fullName) {
+                      handleProductClick(data.fullName, data.수익률);
+                    }
+                  }}
+                >
                   {investmentData.items
                     .sort((a, b) => b.returnRate - a.returnRate)
                     .map((item, index) => (
@@ -610,6 +643,7 @@ export default function BankStatusCharts({ data }: BankStatusChartsProps) {
                   .slice(0, 10)
                   .map((item) => ({
                     name: item.productName.length > 20 ? item.productName.substring(0, 20) + '...' : item.productName,
+                    fullName: item.productName,
                     원금: item.principal,
                     평가금액: item.currentValue,
                   }))}
@@ -619,8 +653,26 @@ export default function BankStatusCharts({ data }: BankStatusChartsProps) {
                 <YAxis tickFormatter={formatYAxis} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend />
-                <Bar dataKey="원금" fill="#8884d8" name="원금" />
-                <Bar dataKey="평가금액" fill="#00C49F" name="평가금액" />
+                <Bar 
+                  dataKey="원금" 
+                  fill="#8884d8" 
+                  name="원금"
+                  onClick={(data: any) => {
+                    if (data && data.fullName) {
+                      handleProductClick(data.fullName, data.원금);
+                    }
+                  }}
+                />
+                <Bar 
+                  dataKey="평가금액" 
+                  fill="#00C49F" 
+                  name="평가금액"
+                  onClick={(data: any) => {
+                    if (data && data.fullName) {
+                      handleProductClick(data.fullName, data.평가금액);
+                    }
+                  }}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -641,6 +693,7 @@ export default function BankStatusCharts({ data }: BankStatusChartsProps) {
                   .filter((item) => item.balance > 0)
                   .map((item) => ({
                     name: item.productName.length > 20 ? item.productName.substring(0, 20) + '...' : item.productName,
+                    fullName: item.productName,
                     잔액: item.balance,
                   }))}
               >
@@ -648,7 +701,16 @@ export default function BankStatusCharts({ data }: BankStatusChartsProps) {
                 <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
                 <YAxis tickFormatter={formatYAxis} />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="잔액" fill="#FF8042" name="잔액" />
+                <Bar 
+                  dataKey="잔액" 
+                  fill="#FF8042" 
+                  name="잔액"
+                  onClick={(data: any) => {
+                    if (data && data.fullName) {
+                      handleProductClick(data.fullName, data.잔액);
+                    }
+                  }}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -676,6 +738,11 @@ export default function BankStatusCharts({ data }: BankStatusChartsProps) {
                     outerRadius={120}
                     fill="#8884d8"
                     dataKey="value"
+                    onClick={(data: any) => {
+                      if (data && data.name) {
+                        handleCategoryClick(data.name, data.value);
+                      }
+                    }}
                   >
                     {Object.entries(
                       loanData.items.reduce((acc, item) => {

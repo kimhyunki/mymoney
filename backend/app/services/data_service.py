@@ -145,6 +145,12 @@ def get_records_by_sheet(db: Session, sheet_id: int, skip: int = 0, limit: int =
     """시트 ID로 데이터 레코드 조회"""
     return db.query(DataRecord).filter(DataRecord.sheet_id == sheet_id).offset(skip).limit(limit).all()
 
+def get_records_by_ids(db: Session, record_ids: List[int]) -> List[DataRecord]:
+    """레코드 ID 리스트로 레코드 조회"""
+    if not record_ids:
+        return []
+    return db.query(DataRecord).filter(DataRecord.id.in_(record_ids)).all()
+
 def extract_and_save_customer_from_data_record(db: Session, sheet_id: int, upload_id: int) -> Optional[Customer]:
     """
     data_record에서 고객정보를 추출하여 customer 테이블에 저장합니다.

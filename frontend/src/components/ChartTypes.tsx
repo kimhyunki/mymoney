@@ -284,6 +284,11 @@ export default function ChartTypes({ data }: ChartTypesProps) {
                     stroke="#00C49F" 
                     strokeWidth={2}
                     name="수입"
+                    onClick={(data: any) => {
+                      if (data && (data.monthKey || data.month)) {
+                        handleMonthlyChartClick(data);
+                      }
+                    }}
                   />
                   <Line 
                     type="monotone" 
@@ -291,6 +296,11 @@ export default function ChartTypes({ data }: ChartTypesProps) {
                     stroke="#FF8042" 
                     strokeWidth={2}
                     name="지출"
+                    onClick={(data: any) => {
+                      if (data && (data.monthKey || data.month)) {
+                        handleMonthlyChartClick(data);
+                      }
+                    }}
                   />
                   <Line 
                     type="monotone" 
@@ -299,6 +309,11 @@ export default function ChartTypes({ data }: ChartTypesProps) {
                     strokeWidth={2}
                     strokeDasharray="5 5"
                     name="순수익"
+                    onClick={(data: any) => {
+                      if (data && (data.monthKey || data.month)) {
+                        handleMonthlyChartClick(data);
+                      }
+                    }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -324,8 +339,26 @@ export default function ChartTypes({ data }: ChartTypesProps) {
                   />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend />
-                  <Bar dataKey="수입" fill="#00C49F" name="수입" />
-                  <Bar dataKey="지출" fill="#FF8042" name="지출" />
+                  <Bar 
+                    dataKey="수입" 
+                    fill="#00C49F" 
+                    name="수입"
+                    onClick={(data: any) => {
+                      if (data && (data.monthKey || data.month)) {
+                        handleMonthlyChartClick(data);
+                      }
+                    }}
+                  />
+                  <Bar 
+                    dataKey="지출" 
+                    fill="#FF8042" 
+                    name="지출"
+                    onClick={(data: any) => {
+                      if (data && (data.monthKey || data.month)) {
+                        handleMonthlyChartClick(data);
+                      }
+                    }}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -344,12 +377,42 @@ export default function ChartTypes({ data }: ChartTypesProps) {
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Line type="monotone" dataKey="value" stroke="#8884d8" name="값 1" />
+                <Line 
+                  type="monotone" 
+                  dataKey="value" 
+                  stroke="#8884d8" 
+                  name="값 1"
+                  onClick={(data: any) => {
+                    if (data && data.name) {
+                      handleChartClick(data);
+                    }
+                  }}
+                />
                 {chartData.some((d) => d.value2 !== 0) && (
-                  <Line type="monotone" dataKey="value2" stroke="#82ca9d" name="값 2" />
+                  <Line 
+                    type="monotone" 
+                    dataKey="value2" 
+                    stroke="#82ca9d" 
+                    name="값 2"
+                    onClick={(data: any) => {
+                      if (data && data.name) {
+                        handleChartClick(data);
+                      }
+                    }}
+                  />
                 )}
                 {chartData.some((d) => d.value3 !== 0) && (
-                  <Line type="monotone" dataKey="value3" stroke="#ffc658" name="값 3" />
+                  <Line 
+                    type="monotone" 
+                    dataKey="value3" 
+                    stroke="#ffc658" 
+                    name="값 3"
+                    onClick={(data: any) => {
+                      if (data && data.name) {
+                        handleChartClick(data);
+                      }
+                    }}
+                  />
                 )}
               </LineChart>
             </ResponsiveContainer>
@@ -364,12 +427,39 @@ export default function ChartTypes({ data }: ChartTypesProps) {
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="value" fill="#8884d8" name="값 1" />
+                <Bar 
+                  dataKey="value" 
+                  fill="#8884d8" 
+                  name="값 1"
+                  onClick={(data: any) => {
+                    if (data && data.name) {
+                      handleChartClick(data);
+                    }
+                  }}
+                />
                 {chartData.some((d) => d.value2 !== 0) && (
-                  <Bar dataKey="value2" fill="#82ca9d" name="값 2" />
+                  <Bar 
+                    dataKey="value2" 
+                    fill="#82ca9d" 
+                    name="값 2"
+                    onClick={(data: any) => {
+                      if (data && data.name) {
+                        handleChartClick(data);
+                      }
+                    }}
+                  />
                 )}
                 {chartData.some((d) => d.value3 !== 0) && (
-                  <Bar dataKey="value3" fill="#ffc658" name="값 3" />
+                  <Bar 
+                    dataKey="value3" 
+                    fill="#ffc658" 
+                    name="값 3"
+                    onClick={(data: any) => {
+                      if (data && data.name) {
+                        handleChartClick(data);
+                      }
+                    }}
+                  />
                 )}
               </BarChart>
             </ResponsiveContainer>

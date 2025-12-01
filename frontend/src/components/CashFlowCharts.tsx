@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   LineChart,
   Line,
@@ -15,6 +16,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import type { CashFlow, ChartDetailData, DataRecord } from '@/types';
+import { getRecordsByIds } from '@/lib/api';
 import ChartDetailModal from './ChartDetailModal';
 
 interface CashFlowChartsProps {
@@ -60,33 +62,72 @@ export default function CashFlowCharts({ cashFlows }: CashFlowChartsProps) {
   };
 
   // CashFlow에서 관련 레코드 찾기 (data_record_id 기반)
-  const findCashFlowRecords = (itemName: string, month?: string): DataRecord[] => {
+  const findCashFlowRecords = async (itemName: string, month?: string): Promise<DataRecord[]> => {
     // CashFlow 객체에서 해당 항목 찾기
-    const matchingCashFlow = cashFlows.find((cf) => cf.item_name === itemName);
-    if (!matchingCashFlow || !matchingCashFlow.data_record_id) {
+    const matchingCashFlows = cashFlows.filter((cf) => cf.item_name === itemName);
+    if (matchingCashFlows.length === 0) {
       return [];
     }
-    
-    // 원본 레코드가 없으므로 빈 배열 반환 (모달에서 메시지 표시)
-    // 실제로는 상위 컴포넌트에서 SheetWithData를 전달받아야 함
-    return [];
+
+    // 월이 지정된 경우 해당 월의 데이터가 있는 CashFlow만 필터링
+    let targetCashFlows = matchingCashFlows;
+    if (month) {
+      targetCashFlows = matchingCashFlows.filter((cf) => {
+        return cf.monthly_data && cf.monthly_data[month] !== undefined && cf.monthly_data[month] !== 0;
+      });
+    }
+
+    // data_record_id 수집
+    const recordIds = targetCashFlows
+      .map((cf) => cf.data_record_id)
+      .filter((id): id is number => id !== null && id !== undefined);
+
+    if (recordIds.length === 0) {
+      return [];
+    }
+
+    // API로 레코드 가져오기
+    try {
+      const records = await getRecordsByIds(recordIds);
+      return records;
+    } catch (error) {
+      console.error('레코드를 가져오는 중 오류 발생:', error);
+      return [];
+    }
   };
 
   // 클릭 핸들러들
-  const handleMonthlyClick = (data: any) => {
+  const handleMonthlyClick = async (data: any) => {
     // Recharts의 LineChart/BarChart onClick은 차트 영역을 클릭했을 때 호출됨
     if (data && data.month) {
+      // 해당 월의 모든 CashFlow의 data_record_id 수집
+      const recordIds = cashFlows
+        .filter((cf) => {
+          return cf.monthly_data && cf.monthly_data[data.month] !== undefined && cf.monthly_data[data.month] !== 0;
+        })
+        .map((cf) => cf.data_record_id)
+        .filter((id): id is number => id !== null && id !== undefined);
+
+      let records: DataRecord[] = [];
+      if (recordIds.length > 0) {
+        try {
+          records = await getRecordsByIds(recordIds);
+        } catch (error) {
+          console.error('레코드를 가져오는 중 오류 발생:', error);
+        }
+      }
+
       openModal({
         title: '월별 현금흐름 상세',
         label: data.month,
         month: data.month,
-        records: [], // 원본 레코드가 없음
+        records,
       });
     }
   };
 
-  const handleItemClick = (itemName: string, value?: number) => {
-    const records = findCashFlowRecords(itemName);
+  const handleItemClick = async (itemName: string, value?: number) => {
+    const records = await findCashFlowRecords(itemName);
     openModal({
       title: '항목 상세',
       label: itemName,
@@ -243,8 +284,26 @@ export default function CashFlowCharts({ cashFlows }: CashFlowChartsProps) {
               <YAxis tickFormatter={formatYAxis} />
               <Tooltip content={<CustomTooltip />} />
               <Legend />
-              <Bar dataKey="수입" fill="#00C49F" name="수입" />
-              <Bar dataKey="지출" fill="#FF8042" name="지출" />
+              <Bar 
+                dataKey="수입" 
+                fill="#00C49F" 
+                name="수입"
+                onClick={(data: any) => {
+                  if (data && data.month) {
+                    handleMonthlyClick(data);
+                  }
+                }}
+              />
+              <Bar 
+                dataKey="지출" 
+                fill="#FF8042" 
+                name="지출"
+                onClick={(data: any) => {
+                  if (data && data.month) {
+                    handleMonthlyClick(data);
+                  }
+                }}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -267,7 +326,7 @@ export default function CashFlowCharts({ cashFlows }: CashFlowChartsProps) {
                 outerRadius={120}
                 fill="#8884d8"
                 dataKey="총계"
-                onClick={(data: any, index?: number, e?: any) => {
+                onClick={(data: any) => {
                   // Recharts의 Pie onClick은 (data, index, e) 형식으로 호출됨
                   if (data && data.name) {
                     handleItemClick(data.name, data.총계);
@@ -301,7 +360,7 @@ export default function CashFlowCharts({ cashFlows }: CashFlowChartsProps) {
                 outerRadius={120}
                 fill="#8884d8"
                 dataKey="총계"
-                onClick={(data: any, index?: number, e?: any) => {
+                onClick={(data: any) => {
                   // Recharts의 Pie onClick은 (data, index, e) 형식으로 호출됨
                   if (data && data.name) {
                     handleItemClick(data.name, data.총계);
