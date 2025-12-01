@@ -39,6 +39,7 @@ export interface Customer {
   age: number | null;
   credit_score: number | null;
   email: string | null;
+  upload_id: number | null;
   data_record_id: number | null;
   created_at: string;
   updated_at: string;
@@ -52,6 +53,7 @@ export interface CashFlow {
   total: number | null;
   monthly_average: number | null;
   monthly_data: Record<string, number> | null;
+  upload_id: number | null;
   data_record_id: number | null;
   created_at: string;
   updated_at: string;

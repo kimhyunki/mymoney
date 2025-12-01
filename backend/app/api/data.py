@@ -77,7 +77,14 @@ async def extract_customer_from_sheet(
     if not sheet:
         raise HTTPException(status_code=404, detail="시트를 찾을 수 없습니다.")
     
-    customer = data_service.extract_and_save_customer_from_data_record(db=db, sheet_id=sheet_id)
+    if not sheet.upload_id:
+        raise HTTPException(status_code=400, detail="시트에 업로드 ID가 없습니다.")
+    
+    customer = data_service.extract_and_save_customer_from_data_record(
+        db=db, 
+        sheet_id=sheet_id,
+        upload_id=sheet.upload_id
+    )
     if not customer:
         raise HTTPException(status_code=404, detail="고객정보를 찾을 수 없습니다.")
     
@@ -119,6 +126,13 @@ async def extract_cash_flows_from_sheet(
     if not sheet:
         raise HTTPException(status_code=404, detail="시트를 찾을 수 없습니다.")
     
-    cash_flows = data_service.extract_and_save_cash_flows_from_data_record(db=db, sheet_id=sheet_id)
+    if not sheet.upload_id:
+        raise HTTPException(status_code=400, detail="시트에 업로드 ID가 없습니다.")
+    
+    cash_flows = data_service.extract_and_save_cash_flows_from_data_record(
+        db=db, 
+        sheet_id=sheet_id,
+        upload_id=sheet.upload_id
+    )
     return cash_flows
 

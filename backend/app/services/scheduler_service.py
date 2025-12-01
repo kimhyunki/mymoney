@@ -31,23 +31,26 @@ def sync_customers_from_data_records():
         
         for sheet in sheets:
             try:
-                # 고객정보가 이미 존재하는지 확인 (시트의 data_record_id로)
-                sheet_records = db.query(DataRecord).filter(DataRecord.sheet_id == sheet.id).all()
-                record_ids = [r.id for r in sheet_records]
-                existing_customer = None
-                if record_ids:
-                    existing_customer = db.query(Customer).filter(
-                        Customer.data_record_id.in_(record_ids)
-                    ).first()
+                # 시트의 upload_id 가져오기
+                upload_id = sheet.upload_id
+                if not upload_id:
+                    logger.warning(f"시트 {sheet.id}에 upload_id가 없습니다. 건너뜁니다.")
+                    continue
                 
-                # 기존 고객정보 추출 함수 사용
+                # 기존 고객정보 추출 함수 사용 (upload_id 전달)
                 customer = data_service.extract_and_save_customer_from_data_record(
                     db=db,
-                    sheet_id=sheet.id
+                    sheet_id=sheet.id,
+                    upload_id=upload_id
                 )
                 
                 if customer:
-                    if existing_customer and existing_customer.id == customer.id:
+                    # 기존 고객인지 확인
+                    existing_customer = db.query(Customer).filter(
+                        Customer.id == customer.id
+                    ).first()
+                    
+                    if existing_customer and existing_customer.upload_id == upload_id:
                         # 기존 고객 업데이트
                         updated_count += 1
                         logger.debug(f"시트 {sheet.id}의 고객정보 업데이트: {customer.name}")
@@ -87,21 +90,31 @@ def sync_cash_flows_from_data_records():
         
         for sheet in sheets:
             try:
-                # 현금 흐름 추출 함수 사용
+                # 시트의 upload_id 가져오기
+                upload_id = sheet.upload_id
+                if not upload_id:
+                    logger.warning(f"시트 {sheet.id}에 upload_id가 없습니다. 건너뜁니다.")
+                    continue
+                
+                # 함수 호출 전에 기존 cash_flow 레코드 ID 수집 (같은 upload_id와 item_name)
+                existing_cash_flow_ids = set()
+                existing_cash_flows = db.query(CashFlow).filter(
+                    CashFlow.upload_id == upload_id,
+                    CashFlow.sheet_id == sheet.id
+                ).all()
+                for cf in existing_cash_flows:
+                    existing_cash_flow_ids.add(cf.id)
+                
+                # 현금 흐름 추출 함수 사용 (upload_id 전달)
                 cash_flows = data_service.extract_and_save_cash_flows_from_data_record(
                     db=db,
-                    sheet_id=sheet.id
+                    sheet_id=sheet.id,
+                    upload_id=upload_id
                 )
                 
                 for cash_flow in cash_flows:
-                    # 기존 cash_flow인지 확인
-                    existing = db.query(CashFlow).filter(
-                        CashFlow.sheet_id == sheet.id,
-                        CashFlow.item_name == cash_flow.item_name,
-                        CashFlow.id != cash_flow.id
-                    ).first()
-                    
-                    if existing:
+                    # 함수 호출 전에 존재했던 레코드인지 확인
+                    if cash_flow.id in existing_cash_flow_ids:
                         updated_count += 1
                         logger.debug(f"시트 {sheet.id}의 현금 흐름 업데이트: {cash_flow.item_name}")
                     else:

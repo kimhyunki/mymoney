@@ -52,6 +52,7 @@ class CustomerCreate(CustomerBase):
 
 class CustomerResponse(CustomerBase):
     id: int
+    upload_id: Optional[int] = None
     data_record_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
@@ -73,6 +74,7 @@ class CashFlowCreate(CashFlowBase):
 class CashFlowResponse(CashFlowBase):
     id: int
     sheet_id: int
+    upload_id: Optional[int] = None
     data_record_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
