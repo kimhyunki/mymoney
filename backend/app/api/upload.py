@@ -4,6 +4,7 @@ from app.database import get_db
 from app.services.upload_service import process_upload
 from app.schemas.schemas import UploadResponse
 import os
+import zipfile
 import logging
 from datetime import datetime
 
@@ -66,9 +67,9 @@ async def upload_file(
 
     except HTTPException:
         raise
-    except ValueError as e:
-        logger.error(f"값 오류: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail=str(e))
+    except (ValueError, zipfile.BadZipFile) as e:
+        logger.error(f"파일 형식 오류: {type(e).__name__}: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail=f"파일을 읽을 수 없습니다: {e}")
     except Exception as e:
         logger.error(f"파일 처리 오류: {type(e).__name__}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"파일 처리 중 오류가 발생했습니다: {e}")
