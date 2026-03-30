@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import upload, data
@@ -20,11 +21,18 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-# 데이터베이스 테이블 생성
-Base.metadata.create_all(bind=engine)
-logger.info("데이터베이스 테이블 생성 완료")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 시작 시
+    Base.metadata.create_all(bind=engine)
+    logger.info("데이터베이스 테이블 생성 완료")
+    sync_interval = int(os.getenv("CUSTOMER_SYNC_INTERVAL", "30"))
+    scheduler_service.start_scheduler(interval_seconds=sync_interval)
+    yield
+    # 종료 시
+    scheduler_service.stop_scheduler()
 
-app = FastAPI(title="MyMoney API", version="1.0.0")
+app = FastAPI(title="MyMoney API", version="1.0.0", lifespan=lifespan)
 
 # CORS 설정
 app.add_middleware(
@@ -34,22 +42,13 @@ app.add_middleware(
         "http://frontend:80",     # Docker 내부 네트워크
     ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
 
 # 라우터 등록
 app.include_router(upload.router, prefix="/api", tags=["upload"])
 app.include_router(data.router, prefix="/api", tags=["data"])
-
-# 스케줄러 시작 (환경 변수로 주기 설정 가능, 기본값: 30초)
-sync_interval = int(os.getenv("CUSTOMER_SYNC_INTERVAL", "30"))
-scheduler_service.start_scheduler(interval_seconds=sync_interval)
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """앱 종료 시 스케줄러 중지"""
-    scheduler_service.stop_scheduler()
 
 @app.get("/")
 async def root():
