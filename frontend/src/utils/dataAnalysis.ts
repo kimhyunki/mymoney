@@ -3,7 +3,8 @@
  */
 
 import { parseDate, extractMonthFromString, sortMonths } from './dateUtils';
-import type { SheetWithData, DataRecord } from '@/types';
+type SheetWithData = { sheet: any; records: any[] };
+type DataRecord = { id: number; sheet_id: number; row_index: number; data: Record<string, any> };
 
 /**
  * 컬럼 감지 결과 인터페이스

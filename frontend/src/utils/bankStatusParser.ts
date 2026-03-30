@@ -2,8 +2,6 @@
  * 뱅샐현황 시트 데이터 파싱 유틸리티
  */
 
-import type { SheetWithData } from '@/types';
-
 export interface CashFlowItem {
   name: string;
   total: number;
@@ -87,7 +85,7 @@ function parseNumber(value: any): number {
 /**
  * 현금흐름현황 파싱
  */
-export function parseCashFlow(data: SheetWithData): CashFlowData | null {
+export function parseCashFlow(data: { sheet: any; records: any[] }): CashFlowData | null {
   const records = data.records;
   if (!records || records.length === 0) return null;
 
@@ -173,7 +171,7 @@ export function parseCashFlow(data: SheetWithData): CashFlowData | null {
 /**
  * 재무현황 파싱
  */
-export function parseFinancialStatus(data: SheetWithData): FinancialStatusData | null {
+export function parseFinancialStatus(data: { sheet: any; records: any[] }): FinancialStatusData | null {
   const records = data.records;
   if (!records || records.length === 0) return null;
 
@@ -236,7 +234,7 @@ export function parseFinancialStatus(data: SheetWithData): FinancialStatusData |
 /**
  * 보험현황 파싱
  */
-export function parseInsuranceStatus(data: SheetWithData): InsuranceStatusData | null {
+export function parseInsuranceStatus(data: { sheet: any; records: any[] }): InsuranceStatusData | null {
   const records = data.records;
   if (!records || records.length === 0) return null;
 
@@ -279,7 +277,7 @@ export function parseInsuranceStatus(data: SheetWithData): InsuranceStatusData |
 /**
  * 투자현황 파싱
  */
-export function parseInvestmentStatus(data: SheetWithData): InvestmentStatusData | null {
+export function parseInvestmentStatus(data: { sheet: any; records: any[] }): InvestmentStatusData | null {
   const records = data.records;
   if (!records || records.length === 0) return null;
 
@@ -326,7 +324,7 @@ export function parseInvestmentStatus(data: SheetWithData): InvestmentStatusData
 /**
  * 대출현황 파싱
  */
-export function parseLoanStatus(data: SheetWithData): LoanStatusData | null {
+export function parseLoanStatus(data: { sheet: any; records: any[] }): LoanStatusData | null {
   const records = data.records;
   if (!records || records.length === 0) return null;
 

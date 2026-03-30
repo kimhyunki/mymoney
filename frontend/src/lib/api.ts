@@ -1,4 +1,11 @@
-import type { UploadHistory, SheetData, SheetWithData, UploadResponse, Customer, CashFlow, DataRecord, FixedExpense, MonthlySummary, FinancialGoal, RealEstateAnalysis } from '@/types';
+import type {
+  Customer, CustomerCreate, CustomerUpdate,
+  CashFlow, CashFlowCreate, CashFlowUpdate,
+  FixedExpense, FixedExpenseCreate, FixedExpenseUpdate,
+  MonthlySummary, MonthlySummaryCreate, MonthlySummaryUpdate,
+  FinancialGoal, FinancialGoalCreate, FinancialGoalUpdate,
+  RealEstateAnalysis, RealEstateAnalysisCreate, RealEstateAnalysisUpdate,
+} from '@/types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8051';
 
@@ -17,9 +24,10 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
       throw new Error(error.detail || `HTTP error! status: ${response.status}`);
     }
 
-    return response.json();
+    // DELETE 등 본문이 없는 응답 처리
+    const text = await response.text();
+    return text ? JSON.parse(text) : ({} as T);
   } catch (error) {
-    // 네트워크 에러나 CORS 에러 등
     if (error instanceof TypeError && error.message === 'Failed to fetch') {
       throw new Error(`백엔드 서버에 연결할 수 없습니다. API URL: ${API_URL}${endpoint}`);
     }
@@ -27,128 +35,80 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
   }
 }
 
-export async function uploadFile(file: File): Promise<UploadResponse> {
-  const formData = new FormData();
-  formData.append('file', file);
+// ── Customer ─────────────────────────────────────────────────
+export const getCustomers = (): Promise<Customer[]> =>
+  fetchAPI('/api/customers');
 
-  try {
-    // 대용량 파일 업로드를 위해 타임아웃을 길게 설정 (10분)
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10 * 60 * 1000); // 10분
+export const createCustomer = (data: CustomerCreate): Promise<Customer> =>
+  fetchAPI('/api/customers', { method: 'POST', body: JSON.stringify(data) });
 
-    const response = await fetch(`${API_URL}/api/upload`, {
-      method: 'POST',
-      body: formData,
-      signal: controller.signal,
-      // FormData를 사용할 때는 Content-Type 헤더를 설정하지 않아야 브라우저가 자동으로 boundary를 설정합니다.
-    });
+export const updateCustomer = (id: number, data: CustomerUpdate): Promise<Customer> =>
+  fetchAPI(`/api/customers/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 
-    clearTimeout(timeoutId);
+export const deleteCustomer = (id: number): Promise<void> =>
+  fetchAPI(`/api/customers/${id}`, { method: 'DELETE' });
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'An error occurred' }));
-      throw new Error(error.detail || `HTTP error! status: ${response.status}`);
-    }
+// ── CashFlow ──────────────────────────────────────────────────
+export const getCashFlows = (): Promise<CashFlow[]> =>
+  fetchAPI('/api/cash-flows');
 
-    return response.json();
-  } catch (error) {
-    // 타임아웃 에러
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('파일 업로드 시간이 초과되었습니다. 파일이 너무 크거나 네트워크 연결이 불안정합니다.');
-    }
-    // 네트워크 에러나 CORS 에러 등
-    if (error instanceof TypeError && error.message === 'Failed to fetch') {
-      throw new Error(`백엔드 서버에 연결할 수 없습니다. API URL: ${API_URL}/api/upload`);
-    }
-    throw error;
-  }
-}
+export const createCashFlow = (data: CashFlowCreate): Promise<CashFlow> =>
+  fetchAPI('/api/cash-flows', { method: 'POST', body: JSON.stringify(data) });
 
-export async function getUploads(): Promise<UploadHistory[]> {
-  return fetchAPI<UploadHistory[]>('/api/uploads');
-}
+export const updateCashFlow = (id: number, data: CashFlowUpdate): Promise<CashFlow> =>
+  fetchAPI(`/api/cash-flows/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 
-export async function getUpload(uploadId: number): Promise<UploadHistory> {
-  return fetchAPI<UploadHistory>(`/api/uploads/${uploadId}`);
-}
+export const deleteCashFlow = (id: number): Promise<void> =>
+  fetchAPI(`/api/cash-flows/${id}`, { method: 'DELETE' });
 
-export async function getSheets(uploadId: number): Promise<SheetData[]> {
-  return fetchAPI<SheetData[]>(`/api/uploads/${uploadId}/sheets`);
-}
+// ── FixedExpense ──────────────────────────────────────────────
+export const getFixedExpenses = (): Promise<FixedExpense[]> =>
+  fetchAPI('/api/fixed-expenses');
 
-export async function getSheetWithData(sheetId: number): Promise<SheetWithData> {
-  return fetchAPI<SheetWithData>(`/api/sheets/${sheetId}`);
-}
+export const createFixedExpense = (data: FixedExpenseCreate): Promise<FixedExpense> =>
+  fetchAPI('/api/fixed-expenses', { method: 'POST', body: JSON.stringify(data) });
 
-export async function getCustomers(): Promise<Customer[]> {
-  return fetchAPI<Customer[]>('/api/customers');
-}
+export const updateFixedExpense = (id: number, data: FixedExpenseUpdate): Promise<FixedExpense> =>
+  fetchAPI(`/api/fixed-expenses/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 
-export async function extractCustomerFromSheet(sheetId: number): Promise<Customer> {
-  return fetchAPI<Customer>(`/api/sheets/${sheetId}/extract-customer`, {
-    method: 'POST',
-  });
-}
+export const deleteFixedExpense = (id: number): Promise<void> =>
+  fetchAPI(`/api/fixed-expenses/${id}`, { method: 'DELETE' });
 
-export async function getCashFlows(sheetId?: number): Promise<CashFlow[]> {
-  const url = sheetId 
-    ? `/api/cash-flows?sheet_id=${sheetId}`
-    : '/api/cash-flows';
-  return fetchAPI<CashFlow[]>(url);
-}
+// ── MonthlySummary ────────────────────────────────────────────
+export const getMonthlySummaries = (year?: number): Promise<MonthlySummary[]> =>
+  fetchAPI(year ? `/api/monthly-summaries?year=${year}` : '/api/monthly-summaries');
 
-export async function extractCashFlowsFromSheet(sheetId: number): Promise<CashFlow[]> {
-  return fetchAPI<CashFlow[]>(`/api/sheets/${sheetId}/extract-cash-flows`, {
-    method: 'POST',
-  });
-}
+export const createMonthlySummary = (data: MonthlySummaryCreate): Promise<MonthlySummary> =>
+  fetchAPI('/api/monthly-summaries', { method: 'POST', body: JSON.stringify(data) });
 
-export async function getRecordsByIds(recordIds: number[]): Promise<DataRecord[]> {
-  return fetchAPI<DataRecord[]>('/api/data-records/by-ids', {
-    method: 'POST',
-    body: JSON.stringify(recordIds),
-  });
-}
+export const updateMonthlySummary = (id: number, data: MonthlySummaryUpdate): Promise<MonthlySummary> =>
+  fetchAPI(`/api/monthly-summaries/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 
-export async function getFixedExpenses(sheetId?: number): Promise<FixedExpense[]> {
-  const url = sheetId ? `/api/fixed-expenses?sheet_id=${sheetId}` : '/api/fixed-expenses';
-  return fetchAPI<FixedExpense[]>(url);
-}
+export const deleteMonthlySummary = (id: number): Promise<void> =>
+  fetchAPI(`/api/monthly-summaries/${id}`, { method: 'DELETE' });
 
-export async function extractFixedExpensesFromSheet(sheetId: number): Promise<FixedExpense[]> {
-  return fetchAPI<FixedExpense[]>(`/api/sheets/${sheetId}/extract-fixed-expenses`, {
-    method: 'POST',
-  });
-}
+// ── FinancialGoal ─────────────────────────────────────────────
+export const getFinancialGoals = (): Promise<FinancialGoal[]> =>
+  fetchAPI('/api/financial-goals');
 
-export async function getMonthlySummaries(year?: number): Promise<MonthlySummary[]> {
-  const url = year ? `/api/monthly-summaries?year=${year}` : '/api/monthly-summaries';
-  return fetchAPI<MonthlySummary[]>(url);
-}
+export const createFinancialGoal = (data: FinancialGoalCreate): Promise<FinancialGoal> =>
+  fetchAPI('/api/financial-goals', { method: 'POST', body: JSON.stringify(data) });
 
-export async function extractMonthlySummaryFromSheet(sheetId: number): Promise<MonthlySummary[]> {
-  return fetchAPI<MonthlySummary[]>(`/api/sheets/${sheetId}/extract-monthly-summary`, {
-    method: 'POST',
-  });
-}
+export const updateFinancialGoal = (id: number, data: FinancialGoalUpdate): Promise<FinancialGoal> =>
+  fetchAPI(`/api/financial-goals/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 
-export async function getFinancialGoals(): Promise<FinancialGoal[]> {
-  return fetchAPI<FinancialGoal[]>('/api/financial-goals');
-}
+export const deleteFinancialGoal = (id: number): Promise<void> =>
+  fetchAPI(`/api/financial-goals/${id}`, { method: 'DELETE' });
 
-export async function extractFinancialGoalFromSheet(sheetId: number): Promise<FinancialGoal> {
-  return fetchAPI<FinancialGoal>(`/api/sheets/${sheetId}/extract-financial-goal`, {
-    method: 'POST',
-  });
-}
+// ── RealEstateAnalysis ────────────────────────────────────────
+export const getRealEstateAnalyses = (): Promise<RealEstateAnalysis[]> =>
+  fetchAPI('/api/real-estate-analyses');
 
-export async function getRealEstateAnalyses(): Promise<RealEstateAnalysis[]> {
-  return fetchAPI<RealEstateAnalysis[]>('/api/real-estate-analyses');
-}
+export const createRealEstateAnalysis = (data: RealEstateAnalysisCreate): Promise<RealEstateAnalysis> =>
+  fetchAPI('/api/real-estate-analyses', { method: 'POST', body: JSON.stringify(data) });
 
-export async function extractRealEstateFromSheet(sheetId: number): Promise<RealEstateAnalysis> {
-  return fetchAPI<RealEstateAnalysis>(`/api/sheets/${sheetId}/extract-real-estate`, {
-    method: 'POST',
-  });
-}
+export const updateRealEstateAnalysis = (id: number, data: RealEstateAnalysisUpdate): Promise<RealEstateAnalysis> =>
+  fetchAPI(`/api/real-estate-analyses/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 
+export const deleteRealEstateAnalysis = (id: number): Promise<void> =>
+  fetchAPI(`/api/real-estate-analyses/${id}`, { method: 'DELETE' });
