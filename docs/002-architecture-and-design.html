@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MyMoney 아키텍처 및 소프트웨어 설계 문서</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3347;
+      --text: #e2e8f0;
+      --text-muted: #8892a4;
+      --accent: #6c8ef7;
+      --accent2: #a78bfa;
+      --red: #f87171;
+      --orange: #fb923c;
+      --yellow: #fbbf24;
+      --green: #34d399;
+      --cyan: #22d3ee;
+      --pink: #f472b6;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      padding: 2rem 1rem;
+    }
+    .container { max-width: 1000px; margin: 0 auto; }
+
+    /* ── Header ── */
+    .report-header {
+      border-left: 4px solid var(--accent);
+      padding: 1.5rem 1.5rem 1.5rem 2rem;
+      background: var(--surface);
+      border-radius: 0 12px 12px 0;
+      margin-bottom: 2rem;
+    }
+    .report-header h1 { font-size: 1.6rem; color: var(--accent); margin-bottom: .4rem; }
+    .report-header .meta { font-size: .85rem; color: var(--text-muted); }
+    .report-header .meta span { margin-right: 1.5rem; }
+
+    /* ── Section headings ── */
+    h2 {
+      font-size: 1.1rem;
+      color: var(--accent2);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: .5rem;
+      margin: 2.5rem 0 1rem;
+      letter-spacing: .03em;
+    }
+    h3 { font-size: .95rem; color: var(--text); margin: 1.4rem 0 .5rem; font-weight: 600; }
+    h4 { font-size: .88rem; color: var(--cyan); margin: 1rem 0 .4rem; font-weight: 600; }
+
+    /* ── Summary cards ── */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: .75rem;
+      margin-bottom: 2rem;
+    }
+    @media (max-width: 700px) { .summary-grid { grid-template-columns: repeat(2, 1fr); } }
+    .summary-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem;
+      text-align: center;
+    }
+    .summary-card .count { font-size: 2rem; font-weight: 700; }
+    .summary-card .label { font-size: .78rem; color: var(--text-muted); margin-top: .2rem; }
+    .c-fr    .count { color: var(--accent); }
+    .c-nfr   .count { color: var(--cyan); }
+    .c-model .count { color: var(--green); }
+    .c-api   .count { color: var(--orange); }
+    .c-phase .count { color: var(--yellow); }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin: .75rem 0 1rem; }
+    table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+    th {
+      background: var(--surface2); color: var(--text-muted);
+      font-weight: 600; text-align: left;
+      padding: .6rem .9rem; border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    td { padding: .52rem .9rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+    tr:hover td { background: rgba(255,255,255,.025); }
+    .done  { color: var(--green); font-weight: 600; }
+    .todo  { color: var(--yellow); font-weight: 600; }
+    .na    { color: var(--text-muted); }
+    .hi    { color: var(--red); font-weight: 600; }
+    .med   { color: var(--orange); font-weight: 600; }
+    .lo    { color: var(--green); }
+    code {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: .8em;
+      background: rgba(108,142,247,.12);
+      color: var(--accent);
+      padding: .05rem .35rem;
+      border-radius: 3px;
+    }
+
+    /* ── Code block ── */
+    pre {
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.1rem;
+      font-size: .79rem;
+      overflow-x: auto;
+      color: #c9d1d9;
+      margin: .6rem 0 1rem;
+      line-height: 1.6;
+    }
+    pre code { background: none; color: inherit; padding: 0; font-size: 1em; }
+
+    /* ── Sheet / Data cards ── */
+    .sheet-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+      gap: .75rem;
+      margin: .75rem 0 1.5rem;
+    }
+    .sheet-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.2rem;
+    }
+    .sheet-card.supported { border-top: 2px solid var(--green); }
+    .sheet-card.new       { border-top: 2px solid var(--yellow); }
+    .sheet-card.skip      { border-top: 2px solid var(--border); }
+    .sheet-name { font-weight: 700; font-size: .92rem; margin-bottom: .4rem; }
+    .sheet-meta { font-size: .78rem; color: var(--text-muted); margin-bottom: .5rem; }
+    .sheet-body { font-size: .84rem; color: var(--text-muted); }
+
+    /* ── FR cards ── */
+    .fr-list { display: flex; flex-direction: column; gap: .75rem; }
+    .fr-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+    }
+    .fr-card.impl  { border-left: 3px solid var(--green); }
+    .fr-card.new   { border-left: 3px solid var(--yellow); }
+    .fr-card.ext   { border-left: 3px solid var(--orange); }
+    .fr-header { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin-bottom: .35rem; }
+    .fr-id { font-family: monospace; font-size: .75rem; color: var(--text-muted); }
+    .fr-title { font-weight: 600; font-size: .95rem; }
+    .badge {
+      font-size: .7rem; font-weight: 600; padding: .15rem .5rem;
+      border-radius: 999px; white-space: nowrap;
+    }
+    .badge-impl { background: rgba(52,211,153,.15); color: var(--green); border: 1px solid rgba(52,211,153,.3); }
+    .badge-new  { background: rgba(251,191,36,.15); color: var(--yellow); border: 1px solid rgba(251,191,36,.3); }
+    .badge-ext  { background: rgba(251,146,60,.15); color: var(--orange); border: 1px solid rgba(251,146,60,.3); }
+    .fr-body { font-size: .86rem; color: var(--text-muted); }
+    .fr-body p { margin-bottom: .3rem; }
+    .fr-body strong { color: var(--text); }
+
+    /* ── NFR cards ── */
+    .nfr-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: .75rem;
+      margin: .75rem 0 1.5rem;
+    }
+    .nfr-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem;
+    }
+    .nfr-id { font-size: .7rem; font-family: monospace; color: var(--text-muted); margin-bottom: .3rem; }
+    .nfr-title { font-weight: 700; font-size: .9rem; margin-bottom: .5rem; }
+    .nfr-title.perf { color: var(--cyan); }
+    .nfr-title.sec  { color: var(--red); }
+    .nfr-title.ext  { color: var(--green); }
+    .nfr-title.sync { color: var(--accent2); }
+    .nfr-items { list-style: none; }
+    .nfr-items li {
+      font-size: .82rem; color: var(--text-muted);
+      padding: .25rem 0;
+      border-bottom: 1px solid rgba(46,51,71,.5);
+    }
+    .nfr-items li:last-child { border-bottom: none; }
+
+    /* ── Architecture diagram ── */
+    .arch-box {
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.4rem 1.6rem;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: .78rem;
+      color: #c9d1d9;
+      overflow-x: auto;
+      line-height: 1.8;
+      margin: .75rem 0 1rem;
+    }
+    .arch-box .hl-green { color: var(--green); }
+    .arch-box .hl-blue  { color: var(--accent); }
+    .arch-box .hl-yellow{ color: var(--yellow); }
+    .arch-box .hl-cyan  { color: var(--cyan); }
+
+    /* ── Model cards ── */
+    .model-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: .75rem;
+      margin: .75rem 0 1.5rem;
+    }
+    .model-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.2rem;
+    }
+    .model-card.existing { border-top: 2px solid var(--accent); }
+    .model-card.new-model { border-top: 2px solid var(--yellow); }
+    .model-name { font-weight: 700; font-size: .9rem; margin-bottom: .2rem; }
+    .model-table-name { font-size: .75rem; font-family: monospace; color: var(--text-muted); margin-bottom: .6rem; }
+    .field-list { list-style: none; }
+    .field-list li {
+      display: flex; justify-content: space-between; align-items: baseline;
+      font-size: .8rem; padding: .2rem 0;
+      border-bottom: 1px solid rgba(46,51,71,.4);
+    }
+    .field-list li:last-child { border-bottom: none; }
+    .field-name { color: var(--text); font-family: monospace; }
+    .field-type { color: var(--text-muted); font-size: .75rem; font-family: monospace; }
+    .field-key  { color: var(--yellow); font-size: .68rem; font-weight: 700; margin-left: .3rem; }
+    .field-note { color: var(--green); font-size: .72rem; margin-left: .3rem; }
+    .field-fk   { color: var(--orange); font-size: .68rem; margin-left: .3rem; }
+    .field-json { color: var(--cyan); font-size: .68rem; margin-left: .3rem; }
+
+    /* ── API table ── */
+    .method {
+      display: inline-block; font-size: .72rem; font-weight: 700;
+      padding: .1rem .45rem; border-radius: 4px; font-family: monospace;
+      min-width: 3rem; text-align: center;
+    }
+    .get  { background: rgba(52,211,153,.15); color: var(--green);  border: 1px solid rgba(52,211,153,.3); }
+    .post { background: rgba(108,142,247,.15); color: var(--accent); border: 1px solid rgba(108,142,247,.3); }
+    .path { font-family: monospace; font-size: .82rem; }
+
+    /* ── Phase roadmap ── */
+    .phase-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: .75rem;
+      margin: .75rem 0 1.5rem;
+    }
+    .phase-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.2rem;
+    }
+    .phase-card.p1 { border-top: 2px solid var(--green); }
+    .phase-card.p2 { border-top: 2px solid var(--cyan); }
+    .phase-card.p3 { border-top: 2px solid var(--orange); }
+    .phase-card.p4 { border-top: 2px solid var(--red); }
+    .phase-header { display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem; }
+    .phase-num {
+      width: 1.6rem; height: 1.6rem; border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: .75rem; font-weight: 700; flex-shrink: 0;
+    }
+    .p1 .phase-num { background: rgba(52,211,153,.2); color: var(--green); }
+    .p2 .phase-num { background: rgba(34,211,238,.2); color: var(--cyan); }
+    .p3 .phase-num { background: rgba(251,146,60,.2); color: var(--orange); }
+    .p4 .phase-num { background: rgba(248,113,113,.2); color: var(--red); }
+    .phase-title-text { font-weight: 700; font-size: .88rem; }
+    .phase-meta { font-size: .78rem; color: var(--text-muted); margin-bottom: .6rem; }
+    .stars { color: var(--yellow); letter-spacing: .05em; }
+    .checklist { list-style: none; }
+    .checklist li {
+      padding: .28rem 0 .28rem 1.5rem;
+      position: relative; font-size: .82rem; color: var(--text-muted);
+      border-bottom: 1px solid rgba(46,51,71,.5);
+    }
+    .checklist li:last-child { border-bottom: none; }
+    .checklist li::before {
+      content: '☐';
+      position: absolute; left: 0;
+      color: var(--border); font-size: .9rem;
+    }
+
+    /* ── Section tag ── */
+    .section-tag {
+      display: inline-flex; align-items: center; gap: .4rem;
+      font-size: .72rem; font-weight: 700; letter-spacing: .08em;
+      color: var(--text-muted); text-transform: uppercase;
+      padding: .2rem .6rem; border: 1px solid var(--border);
+      border-radius: 4px; margin-bottom: .75rem;
+    }
+
+    /* ── Flow diagram ── */
+    .flow {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.2rem 1.5rem;
+      margin: .75rem 0 1.5rem;
+      font-size: .84rem;
+    }
+    .flow-step {
+      display: flex; align-items: flex-start; gap: .75rem;
+      padding: .5rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .flow-step:last-child { border-bottom: none; }
+    .flow-arrow { color: var(--text-muted); font-size: 1rem; flex-shrink: 0; margin-top: .1rem; }
+    .flow-label { font-weight: 600; color: var(--accent); min-width: 140px; flex-shrink: 0; }
+    .flow-desc  { color: var(--text-muted); font-size: .83rem; }
+
+    /* ── Comparison table ── */
+    .compare-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      margin: .75rem 0 1.5rem;
+    }
+
+    footer {
+      margin-top: 3rem; text-align: center;
+      font-size: .78rem; color: var(--text-muted);
+      border-top: 1px solid var(--border); padding-top: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- ───── Header ───── -->
+  <div class="report-header">
+    <h1>MyMoney 아키텍처 및 소프트웨어 설계 문서</h1>
+    <div class="meta">
+      <span>📅 작성일: 2026-03-30</span>
+      <span>📊 분석 소스: 26_가계부_재무재표.xlsx</span>
+      <span>🔍 작성 도구: Claude Code (claude-sonnet-4-6)</span>
+      <span>📁 문서 번호: 002</span>
+    </div>
+  </div>
+
+  <!-- ───── Summary ───── -->
+  <h2>문서 요약</h2>
+  <div class="summary-grid">
+    <div class="summary-card c-fr">   <div class="count">8</div>  <div class="label">기능 요구사항</div></div>
+    <div class="summary-card c-nfr">  <div class="count">4</div>  <div class="label">비기능 요구사항</div></div>
+    <div class="summary-card c-model"><div class="count">4</div>  <div class="label">신규 데이터 모델</div></div>
+    <div class="summary-card c-api">  <div class="count">8</div>  <div class="label">신규 API 엔드포인트</div></div>
+    <div class="summary-card c-phase"><div class="count">4</div>  <div class="label">구현 Phase</div></div>
+  </div>
+
+  <!-- ───── 1. 프로젝트 개요 ───── -->
+  <h2>1. 프로젝트 개요</h2>
+  <p style="font-size:.9rem;color:var(--text-muted);margin-bottom:1rem;">
+    <strong style="color:var(--text)">MyMoney</strong>는 가정 재무 현황을 Excel 파일로 관리하는 사용자를 위한 웹 시각화 앱이다.
+    뱅크샐러드 내보내기 형식의 Excel 파일을 업로드하면 고객정보·현금흐름·고정비·재무목표·부동산 분석 데이터를 자동 추출하여 차트와 대시보드로 제공한다.
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>영역</th><th>기술</th></tr></thead>
+      <tbody>
+        <tr><td>Frontend</td><td>React 19, TypeScript, Vite, React Router 7, React Query 5, Recharts, Tailwind CSS 4</td></tr>
+        <tr><td>Backend</td><td>FastAPI, SQLAlchemy 2, Pydantic 2, Alembic, APScheduler</td></tr>
+        <tr><td>Database</td><td>PostgreSQL</td></tr>
+        <tr><td>인프라</td><td>Docker Compose</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ───── 2. Excel 데이터 소스 분석 ───── -->
+  <h2>2. Excel 데이터 소스 분석 — 26_가계부_재무재표.xlsx</h2>
+
+  <div class="sheet-grid">
+    <div class="sheet-card supported">
+      <div class="sheet-name">뱅샐현황 (26-01 / 26-02)</div>
+      <div class="sheet-meta">~163행 × 17열 &nbsp;|&nbsp; <span class="done">✅ 지원</span></div>
+      <div class="sheet-body">고객정보 (Row 3~6) + 현금흐름 분석 (Row 9~)<br>
+        추출 대상: <code>Customer</code>, <code>CashFlow</code></div>
+    </div>
+    <div class="sheet-card new">
+      <div class="sheet-name">고정비 (26)</div>
+      <div class="sheet-meta">59행 × 19열 &nbsp;|&nbsp; <span class="todo">🔲 신규</span></div>
+      <div class="sheet-body">계좌·은행·항목별 월별 고정지출<br>
+        추출 대상: <code>FixedExpense</code></div>
+    </div>
+    <div class="sheet-card new">
+      <div class="sheet-name">총 결산</div>
+      <div class="sheet-meta">57행 × 18열 &nbsp;|&nbsp; <span class="todo">🔲 신규</span></div>
+      <div class="sheet-body">월별 수입/지출/순수익/누적·투자 원금·평가금<br>
+        추출 대상: <code>MonthlySummary</code></div>
+    </div>
+    <div class="sheet-card new">
+      <div class="sheet-name">평촌 자이 퍼스티니 분양금 계획</div>
+      <div class="sheet-meta">긴 시트 × 15열 &nbsp;|&nbsp; <span class="todo">🔲 신규</span></div>
+      <div class="sheet-body">목표금액·기간·진행률 + 계획 vs 집행 추적<br>
+        추출 대상: <code>FinancialGoal</code></div>
+    </div>
+    <div class="sheet-card new">
+      <div class="sheet-name">부동산 수익분석</div>
+      <div class="sheet-meta">41행 × 10열 &nbsp;|&nbsp; <span class="todo">🔲 신규</span></div>
+      <div class="sheet-body">자산 구조·ROE·레버리지 배수·가속계수<br>
+        추출 대상: <code>RealEstateAnalysis</code></div>
+    </div>
+    <div class="sheet-card skip">
+      <div class="sheet-name">Sheet2 / Sheet3</div>
+      <div class="sheet-meta">보조 시트 &nbsp;|&nbsp; <span class="na">— 미추출</span></div>
+      <div class="sheet-body">투자 시뮬레이션·부동산 분석 입력 데이터<br>
+        RealEstateAnalysis 보조 참고 용도</div>
+    </div>
+  </div>
+
+  <h3>뱅샐현황 컬럼 구조 (현재 지원)</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>열 인덱스 (data 키)</th><th>고객정보 영역</th><th>현금흐름 영역</th></tr></thead>
+      <tbody>
+        <tr><td><code>"1"</code> (C열)</td><td>항목 레이블 (이름/성별 등)</td><td>항목명 (급여, 생활 등)</td></tr>
+        <tr><td><code>"2"</code> (D열)</td><td>값 (김현기, 남 등)</td><td>총계</td></tr>
+        <tr><td><code>"3"</code> (E열)</td><td>—</td><td>월평균</td></tr>
+        <tr><td><code>"4"~"16"</code> (F~Q열)</td><td>—</td><td>월별 금액 (YYYY-MM 형식, 13개월)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>고정비 컬럼 구조 (신규)</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>열 인덱스</th><th>필드</th><th>예시값</th></tr></thead>
+      <tbody>
+        <tr><td><code>"1"</code></td><td>account_number (계좌)</td><td>528420827040</td></tr>
+        <tr><td><code>"2"</code></td><td>bank_name (은행)</td><td>미래에셋</td></tr>
+        <tr><td><code>"3"</code></td><td>account_holder (예금주)</td><td>김현기</td></tr>
+        <tr><td><code>"4"</code></td><td>transfer_name (이체명)</td><td>현기 저축</td></tr>
+        <tr><td><code>"5"</code></td><td>category (성향)</td><td>저축(연금)</td></tr>
+        <tr><td><code>"6"</code></td><td>item_name (항목)</td><td>현기 연금</td></tr>
+        <tr><td><code>"7"~"18"</code></td><td>monthly_data (01월~12월)</td><td>200,000</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>총 결산 행 레이블 매핑 (신규)</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>행 레이블 (<code>"1"</code>키)</th><th>저장 필드</th><th>2026-01</th><th>2026-02</th></tr></thead>
+      <tbody>
+        <tr><td>월 수입</td><td><code>income</code></td><td>10,368,100</td><td>9,668,527</td></tr>
+        <tr><td>월 지출</td><td><code>expense</code></td><td>3,476,702</td><td>3,357,958</td></tr>
+        <tr><td>월 순수익</td><td><code>net_income</code></td><td>6,891,398</td><td>6,310,569</td></tr>
+        <tr><td>누적 순수익</td><td><code>cumulative_net_income</code></td><td>6,891,398</td><td>13,201,967</td></tr>
+        <tr><td>원금</td><td><code>investment_principal</code></td><td>119,345,971</td><td>139,028,365</td></tr>
+        <tr><td>평가금</td><td><code>investment_value</code></td><td>86,806,114</td><td>104,346,609</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>재무목표 메타데이터 (신규)</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>항목</th><th>값</th><th>저장 필드</th></tr></thead>
+      <tbody>
+        <tr><td>목표 금액</td><td>240,523,700 원</td><td><code>target_amount</code></td></tr>
+        <tr><td>연수익률</td><td>5%</td><td><code>interest_rate</code></td></tr>
+        <tr><td>총주수</td><td>117주 (2년 2개월)</td><td><code>total_weeks</code></td></tr>
+        <tr><td>경과주수</td><td>25주 (0년 5개월)</td><td><code>elapsed_weeks</code></td></tr>
+        <tr><td>진행률</td><td>21.37%</td><td><code>progress_rate</code></td></tr>
+        <tr><td>주당 적립액</td><td>1,943,276 원</td><td><code>weekly_allocation</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ───── 3. 요구사항 정의 ───── -->
+  <h2>3. 요구사항 정의</h2>
+
+  <h3>3.1 기능 요구사항 (FR)</h3>
+  <div class="fr-list">
+
+    <div class="fr-card impl">
+      <div class="fr-header">
+        <span class="fr-id">FR-001</span>
+        <span class="badge badge-impl">✅ 구현 완료</span>
+        <span class="fr-title">Excel 파일 업로드</span>
+      </div>
+      <div class="fr-body">
+        <p><strong>설명:</strong> 사용자가 가계부 Excel 파일을 웹 UI를 통해 업로드할 수 있다.</p>
+        <p><strong>처리:</strong> 모든 시트를 파싱 → <code>DataRecord</code> JSON 저장 → <code>UploadHistory</code>, <code>SheetData</code> 레코드 생성</p>
+        <p><strong>제약:</strong> <code>.xlsx</code>/<code>.xls</code>만 허용, 파일 크기 제한 필요 (NFR-002)</p>
+      </div>
+    </div>
+
+    <div class="fr-card impl">
+      <div class="fr-header">
+        <span class="fr-id">FR-002</span>
+        <span class="badge badge-impl">✅ 구현 완료</span>
+        <span class="fr-title">고객 정보 추출·관리</span>
+      </div>
+      <div class="fr-body">
+        <p><strong>설명:</strong> 뱅샐현황 시트의 고객정보를 추출하여 조회할 수 있다.</p>
+        <p><strong>처리:</strong> "이름" 헤더 탐색 → 이름·성별·나이·신용점수·이메일 추출 → 동일 이름 시 파일 날짜 기반 최신 우선</p>
+        <p><strong>출력:</strong> <code>Customer[]</code></p>
+      </div>
+    </div>
+
+    <div class="fr-card impl">
+      <div class="fr-header">
+        <span class="fr-id">FR-003</span>
+        <span class="badge badge-impl">✅ 구현 완료</span>
+        <span class="fr-title">현금흐름 분석</span>
+      </div>
+      <div class="fr-body">
+        <p><strong>설명:</strong> 수입/지출 항목별 월별 현금흐름을 추출하여 조회·시각화한다.</p>
+        <p><strong>처리:</strong> "2.현금흐름현황" 섹션 탐색 → 항목별 총계·월평균·월별 13개월 추출 → 복수 파일 월별 병합</p>
+        <p><strong>출력:</strong> <code>CashFlow[]</code>, 월별 트렌드 차트</p>
+      </div>
+    </div>
+
+    <div class="fr-card new">
+      <div class="fr-header">
+        <span class="fr-id">FR-004</span>
+        <span class="badge badge-new">🔲 신규</span>
+        <span class="fr-title">고정비 관리</span>
+      </div>
+      <div class="fr-body">
+        <p><strong>설명:</strong> 고정비 시트의 계좌·은행·항목별 월별 고정지출을 추출하여 조회·분석한다.</p>
+        <p><strong>처리:</strong> "계좌" 헤더 탐색 → 성향 기반 카테고리 분류 (저축/용돈/보험/교육) → 월별 JSON 저장</p>
+        <p><strong>출력:</strong> <code>FixedExpense[]</code>, 카테고리별 파이 차트</p>
+        <p><strong>원본 시트:</strong> 고정비 (26)</p>
+      </div>
+    </div>
+
+    <div class="fr-card new">
+      <div class="fr-header">
+        <span class="fr-id">FR-005</span>
+        <span class="badge badge-new">🔲 신규</span>
+        <span class="fr-title">월별 재무 요약</span>
+      </div>
+      <div class="fr-body">
+        <p><strong>설명:</strong> 총 결산 시트의 월별 수입·지출·순수익·누적 데이터를 추출하여 연간 대시보드로 제공한다.</p>
+        <p><strong>처리:</strong> 행 레이블 매핑 → 연도·월별 6개 지표 추출</p>
+        <p><strong>출력:</strong> <code>MonthlySummary[]</code>, 연간 막대 차트, 누적 순수익 라인 차트</p>
+        <p><strong>원본 시트:</strong> 총 결산</p>
+      </div>
+    </div>
+
+    <div class="fr-card new">
+      <div class="fr-header">
+        <span class="fr-id">FR-006</span>
+        <span class="badge badge-new">🔲 신규</span>
+        <span class="fr-title">재무 목표 관리</span>
+      </div>
+      <div class="fr-body">
+        <p><strong>설명:</strong> 분양금 계획 시트의 목표금액·기간·진행률 및 계획 vs 실제 집행을 추적한다.</p>
+        <p><strong>처리:</strong> 메타데이터 영역 추출 → 계획/집행 섹션을 각각 JSON 배열로 저장</p>
+        <p><strong>출력:</strong> <code>FinancialGoal</code>, 진행률 게이지, 계획 vs 집행 비교 차트</p>
+        <p><strong>원본 시트:</strong> 평촌 자이 퍼스티니 분양금 계획</p>
+      </div>
+    </div>
+
+    <div class="fr-card new">
+      <div class="fr-header">
+        <span class="fr-id">FR-007</span>
+        <span class="badge badge-new">🔲 신규</span>
+        <span class="fr-title">부동산 투자 분석</span>
+      </div>
+      <div class="fr-body">
+        <p><strong>설명:</strong> 부동산 수익분석 시트의 자산 구조·ROE·레버리지 지표를 추출하여 투자 성과 요약을 제공한다.</p>
+        <p><strong>처리:</strong> 취득원가·자기자본·타인자본·시세차익·ROE·레버리지 배수·가속계수 추출</p>
+        <p><strong>출력:</strong> <code>RealEstateAnalysis</code>, 자산 구조 파이 차트, 레버리지 비교 테이블</p>
+        <p><strong>원본 시트:</strong> 부동산 수익분석, Sheet3</p>
+      </div>
+    </div>
+
+    <div class="fr-card ext">
+      <div class="fr-header">
+        <span class="fr-id">FR-008</span>
+        <span class="badge badge-ext">🔶 확장</span>
+        <span class="fr-title">데이터 시각화</span>
+      </div>
+      <div class="fr-body">
+        <p><strong>현재 구현:</strong> 현금흐름 월별 트렌드, 차트 클릭 세부 내역 팝업 모달</p>
+        <p><strong>신규 추가:</strong> 고정비 카테고리 파이 차트 (FR-004) / 월별 순수익 누적 차트 (FR-005) / 재무 목표 진행률 게이지 (FR-006) / 투자 수익률 요약 카드 (FR-007)</p>
+      </div>
+    </div>
+
+  </div>
+
+  <h3>3.2 비기능 요구사항 (NFR)</h3>
+  <div class="nfr-grid">
+    <div class="nfr-card">
+      <div class="nfr-id">NFR-001</div>
+      <div class="nfr-title perf">성능</div>
+      <ul class="nfr-items">
+        <li>N+1 쿼리 금지 — 루프 종료 후 단일 <code>commit</code></li>
+        <li>Excel 이중 로딩 금지 — <code>data_only=True</code> 우선, lazy 로딩</li>
+        <li>스케줄러 전체 스캔 금지 — 변경 시트만 처리</li>
+        <li>유틸 함수 컴포넌트 외부 선언</li>
+      </ul>
+    </div>
+    <div class="nfr-card">
+      <div class="nfr-id">NFR-002</div>
+      <div class="nfr-title sec">보안</div>
+      <ul class="nfr-items">
+        <li>업로드 파일 최대 크기 제한</li>
+        <li>파일명 Path traversal 방지</li>
+        <li>확장자 화이트리스트 (<code>.xlsx</code>, <code>.xls</code>)</li>
+        <li>CORS — 운영 도메인으로 제한</li>
+      </ul>
+    </div>
+    <div class="nfr-card">
+      <div class="nfr-id">NFR-003</div>
+      <div class="nfr-title ext">확장성</div>
+      <ul class="nfr-items">
+        <li>6개 파일만 수정해 새 도메인 모델 추가</li>
+        <li>매직값 금지 — 상수 파일 상단 정의</li>
+        <li>스키마 3단 구조 (Base → Create → Response)</li>
+      </ul>
+    </div>
+    <div class="nfr-card">
+      <div class="nfr-id">NFR-004</div>
+      <div class="nfr-title sync">동기화</div>
+      <ul class="nfr-items">
+        <li>APScheduler 30초 주기 (<code>CUSTOMER_SYNC_INTERVAL</code>)</li>
+        <li>React Query <code>refetchInterval: 30000</code> 연동</li>
+        <li>신규 모델도 동일 주기로 sync 추가</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ───── 4. 시스템 아키텍처 ───── -->
+  <h2>4. 시스템 아키텍처</h2>
+
+  <h3>컴포넌트 다이어그램</h3>
+  <svg viewBox="0 0 980 500" xmlns="http://www.w3.org/2000/svg" width="100%" style="display:block;max-width:980px;margin:.75rem 0 1rem;">
+    <defs>
+      <marker id="arr-r" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+        <polygon points="0 0, 9 3.5, 0 7" fill="#6c8ef7"/>
+      </marker>
+      <marker id="arr-l" markerWidth="9" markerHeight="7" refX="1" refY="3.5" orient="auto-start-reverse">
+        <polygon points="0 0, 9 3.5, 0 7" fill="#6c8ef7"/>
+      </marker>
+      <marker id="arr-d" markerWidth="7" markerHeight="7" refX="3.5" refY="6" orient="auto">
+        <polygon points="0 0, 7 0, 3.5 6" fill="#8892a4"/>
+      </marker>
+    </defs>
+
+    <!-- ── User actor ── -->
+    <circle cx="46" cy="220" r="18" fill="none" stroke="#8892a4" stroke-width="1.5"/>
+    <line x1="46" y1="238" x2="46" y2="278" stroke="#8892a4" stroke-width="1.5"/>
+    <line x1="26" y1="255" x2="66" y2="255" stroke="#8892a4" stroke-width="1.5"/>
+    <line x1="46" y1="278" x2="26" y2="300" stroke="#8892a4" stroke-width="1.5"/>
+    <line x1="46" y1="278" x2="66" y2="300" stroke="#8892a4" stroke-width="1.5"/>
+    <text x="46" y="320" text-anchor="middle" fill="#8892a4" font-size="11" font-family="sans-serif">User</text>
+
+    <!-- ── Docker Compose wrapper ── -->
+    <rect x="82" y="10" width="888" height="478" rx="14" fill="#080b10" stroke="#2e3347" stroke-width="1.5" stroke-dasharray="8 4"/>
+    <text x="100" y="34" fill="#3a4060" font-size="11" font-family="monospace" font-weight="700" letter-spacing="0.1em">DOCKER COMPOSE</text>
+
+    <!-- ── Frontend box ── -->
+    <rect x="100" y="52" width="210" height="420" rx="10" fill="#1a1d27" stroke="#6c8ef7" stroke-width="1.5"/>
+    <!-- header -->
+    <rect x="100" y="52" width="210" height="56" rx="10" fill="#1e2440"/>
+    <rect x="100" y="90" width="210" height="18" fill="#1e2440"/>
+    <text x="205" y="78" text-anchor="middle" fill="#6c8ef7" font-size="14" font-weight="700" font-family="sans-serif">Frontend</text>
+    <text x="205" y="98" text-anchor="middle" fill="#22d3ee" font-size="10.5" font-family="monospace">React 19  ·  port 8050</text>
+    <!-- chips -->
+    <rect x="120" y="126" width="170" height="30" rx="6" fill="#22263a"/>
+    <text x="205" y="146" text-anchor="middle" fill="#e2e8f0" font-size="11" font-family="sans-serif">React Query 5</text>
+    <rect x="120" y="166" width="170" height="30" rx="6" fill="#22263a"/>
+    <text x="205" y="186" text-anchor="middle" fill="#e2e8f0" font-size="11" font-family="sans-serif">Recharts</text>
+    <rect x="120" y="206" width="170" height="30" rx="6" fill="#22263a"/>
+    <text x="205" y="226" text-anchor="middle" fill="#e2e8f0" font-size="11" font-family="sans-serif">React Router 7</text>
+    <rect x="120" y="246" width="170" height="30" rx="6" fill="#22263a"/>
+    <text x="205" y="266" text-anchor="middle" fill="#e2e8f0" font-size="11" font-family="sans-serif">Tailwind CSS 4</text>
+    <rect x="120" y="286" width="170" height="30" rx="6" fill="#22263a"/>
+    <text x="205" y="306" text-anchor="middle" fill="#e2e8f0" font-size="11" font-family="sans-serif">TypeScript</text>
+    <rect x="120" y="326" width="170" height="30" rx="6" fill="#22263a"/>
+    <text x="205" y="346" text-anchor="middle" fill="#e2e8f0" font-size="11" font-family="sans-serif">Vite</text>
+    <!-- refetch label -->
+    <rect x="120" y="380" width="170" height="26" rx="5" fill="#0f1117" stroke="#2e3347" stroke-width="1"/>
+    <text x="205" y="397" text-anchor="middle" fill="#8892a4" font-size="10" font-family="monospace">refetchInterval: 30s</text>
+    <rect x="120" y="416" width="170" height="26" rx="5" fill="#0f1117" stroke="#2e3347" stroke-width="1"/>
+    <text x="205" y="433" text-anchor="middle" fill="#8892a4" font-size="10" font-family="monospace">timeout: 10min (upload)</text>
+
+    <!-- ── HTTP arrows ── -->
+    <!-- User → Frontend -->
+    <line x1="65" y1="243" x2="98" y2="243" stroke="#6c8ef7" stroke-width="1.5" marker-end="url(#arr-r)"/>
+
+    <!-- Frontend ↔ Backend -->
+    <line x1="312" y1="200" x2="378" y2="200" stroke="#6c8ef7" stroke-width="1.5" marker-end="url(#arr-r)"/>
+    <line x1="378" y1="212" x2="312" y2="212" stroke="#6c8ef7" stroke-width="1.5" marker-end="url(#arr-l)"/>
+    <text x="345" y="193" text-anchor="middle" fill="#6c8ef7" font-size="10" font-family="monospace" font-weight="600">HTTP / REST</text>
+
+    <!-- ── Backend outer box ── -->
+    <rect x="382" y="52" width="574" height="420" rx="10" fill="#1a1d27" stroke="#6c8ef7" stroke-width="1.5"/>
+    <!-- header -->
+    <rect x="382" y="52" width="574" height="56" rx="10" fill="#1e2440"/>
+    <rect x="382" y="90" width="574" height="18" fill="#1e2440"/>
+    <text x="669" y="78" text-anchor="middle" fill="#6c8ef7" font-size="14" font-weight="700" font-family="sans-serif">Backend</text>
+    <text x="669" y="98" text-anchor="middle" fill="#22d3ee" font-size="10.5" font-family="monospace">FastAPI  ·  SQLAlchemy 2  ·  Pydantic 2  ·  port 8051</text>
+
+    <!-- API layer -->
+    <rect x="402" y="124" width="534" height="38" rx="7" fill="#22263a" stroke="#2e3347" stroke-width="1"/>
+    <text x="669" y="148" text-anchor="middle" fill="#a78bfa" font-size="11.5" font-family="monospace">api / upload.py  ·  api / data.py</text>
+
+    <!-- Services sub-panel -->
+    <rect x="402" y="178" width="534" height="188" rx="8" fill="#0d1019" stroke="#2e3347" stroke-width="1"/>
+    <text x="422" y="196" fill="#4a5270" font-size="10" font-family="monospace" font-weight="700" letter-spacing="0.08em">SERVICES</text>
+    <rect x="418" y="204" width="502" height="34" rx="6" fill="#1a1d27"/>
+    <text x="669" y="226" text-anchor="middle" fill="#34d399" font-size="12" font-family="monospace">excel_parser.py</text>
+    <rect x="418" y="248" width="502" height="34" rx="6" fill="#1a1d27"/>
+    <text x="669" y="270" text-anchor="middle" fill="#34d399" font-size="12" font-family="monospace">data_service.py</text>
+    <rect x="418" y="292" width="502" height="34" rx="6" fill="#1a1d27"/>
+    <text x="669" y="314" text-anchor="middle" fill="#34d399" font-size="12" font-family="monospace">scheduler_service.py  (APScheduler, 30s)</text>
+
+    <!-- Services → PostgreSQL arrow -->
+    <line x1="669" y1="366" x2="669" y2="388" stroke="#8892a4" stroke-width="1.5" marker-end="url(#arr-d)"/>
+    <text x="680" y="382" fill="#4a5270" font-size="10" font-family="monospace">SQLAlchemy ORM</text>
+
+    <!-- PostgreSQL sub-panel -->
+    <rect x="402" y="392" width="534" height="64" rx="8" fill="#141008" stroke="#fbbf24" stroke-width="1.5"/>
+    <text x="669" y="422" text-anchor="middle" fill="#fbbf24" font-size="14" font-weight="700" font-family="sans-serif">PostgreSQL</text>
+    <text x="669" y="444" text-anchor="middle" fill="#8892a4" font-size="11" font-family="monospace">port 8052  ·  Alembic migrations</text>
+  </svg>
+
+  <h3>데이터 흐름</h3>
+  <div class="flow">
+    <div class="flow-step">
+      <div class="flow-arrow">①</div>
+      <div class="flow-label">사용자 업로드</div>
+      <div class="flow-desc"><code>POST /api/upload</code> — multipart/form-data로 <code>.xlsx</code> 전송 (최대 10분 타임아웃)</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-arrow">②</div>
+      <div class="flow-label">excel_parser.py</div>
+      <div class="flow-desc">openpyxl로 각 시트 파싱 → <code>List[List[Any]]</code> (행 × 열 배열)</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-arrow">③</div>
+      <div class="flow-label">DataRecord 저장</div>
+      <div class="flow-desc">각 행을 <code>{"1": val, "2": val, ...}</code> JSON으로 <code>data_record</code> 테이블에 저장</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-arrow">④</div>
+      <div class="flow-label">도메인 추출</div>
+      <div class="flow-desc">
+        <code>extract_and_save_customer()</code> → <code>Customer</code><br>
+        <code>extract_and_save_cash_flows()</code> → <code>CashFlow</code><br>
+        <span style="color:var(--yellow)"><code>extract_and_save_fixed_expenses()</code> → <code>FixedExpense</code> [신규]</span><br>
+        <span style="color:var(--yellow)"><code>extract_and_save_monthly_summary()</code> → <code>MonthlySummary</code> [신규]</span>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-arrow">⑤</div>
+      <div class="flow-label">React Query</div>
+      <div class="flow-desc"><code>refetchInterval: 30000</code> — 30초마다 자동 갱신, 차트·대시보드 업데이트</div>
+    </div>
+  </div>
+
+  <!-- ───── 5. 데이터 모델 설계 ───── -->
+  <h2>5. 데이터 모델 설계</h2>
+
+  <h3>5.1 현재 모델</h3>
+  <div class="model-grid">
+    <div class="model-card existing">
+      <div class="model-name">UploadHistory</div>
+      <div class="model-table-name">upload_history</div>
+      <ul class="field-list">
+        <li><span class="field-name">id</span><span class="field-type">INTEGER<span class="field-key">PK</span></span></li>
+        <li><span class="field-name">filename</span><span class="field-type">VARCHAR NOT NULL</span></li>
+        <li><span class="field-name">uploaded_at</span><span class="field-type">TIMESTAMP</span></li>
+        <li><span class="field-name">sheet_count</span><span class="field-type">INTEGER</span></li>
+      </ul>
+    </div>
+    <div class="model-card existing">
+      <div class="model-name">SheetData</div>
+      <div class="model-table-name">sheet_data</div>
+      <ul class="field-list">
+        <li><span class="field-name">id</span><span class="field-type">INTEGER<span class="field-key">PK</span></span></li>
+        <li><span class="field-name">upload_id</span><span class="field-type">INTEGER<span class="field-fk">FK</span></span></li>
+        <li><span class="field-name">sheet_name</span><span class="field-type">VARCHAR</span></li>
+        <li><span class="field-name">row_count</span><span class="field-type">INTEGER</span></li>
+        <li><span class="field-name">column_count</span><span class="field-type">INTEGER</span></li>
+      </ul>
+    </div>
+    <div class="model-card existing">
+      <div class="model-name">DataRecord</div>
+      <div class="model-table-name">data_record</div>
+      <ul class="field-list">
+        <li><span class="field-name">id</span><span class="field-type">INTEGER<span class="field-key">PK</span></span></li>
+        <li><span class="field-name">sheet_id</span><span class="field-type">INTEGER<span class="field-fk">FK</span></span></li>
+        <li><span class="field-name">row_index</span><span class="field-type">INTEGER</span></li>
+        <li><span class="field-name">data</span><span class="field-type">JSON<span class="field-json">{"1":val,...}</span></span></li>
+      </ul>
+    </div>
+    <div class="model-card existing">
+      <div class="model-name">Customer</div>
+      <div class="model-table-name">customer &nbsp;·&nbsp; idx(name, upload_id)</div>
+      <ul class="field-list">
+        <li><span class="field-name">name</span><span class="field-type">VARCHAR NOT NULL</span></li>
+        <li><span class="field-name">gender / age</span><span class="field-type">VARCHAR / INTEGER</span></li>
+        <li><span class="field-name">credit_score</span><span class="field-type">INTEGER</span></li>
+        <li><span class="field-name">email</span><span class="field-type">VARCHAR</span></li>
+        <li><span class="field-name">upload_id</span><span class="field-type">INTEGER<span class="field-fk">FK</span></span></li>
+        <li><span class="field-name">data_record_id</span><span class="field-type">INTEGER<span class="field-fk">FK</span></span></li>
+        <li><span class="field-name">created_at / updated_at</span><span class="field-type">TIMESTAMP</span></li>
+      </ul>
+    </div>
+    <div class="model-card existing">
+      <div class="model-name">CashFlow</div>
+      <div class="model-table-name">cash_flow &nbsp;·&nbsp; idx(item_name, upload_id)</div>
+      <ul class="field-list">
+        <li><span class="field-name">sheet_id</span><span class="field-type">INTEGER<span class="field-fk">FK</span></span></li>
+        <li><span class="field-name">item_name</span><span class="field-type">VARCHAR NOT NULL</span></li>
+        <li><span class="field-name">item_type</span><span class="field-type">VARCHAR (수입/지출)</span></li>
+        <li><span class="field-name">total / monthly_average</span><span class="field-type">NUMERIC(15,2)</span></li>
+        <li><span class="field-name">monthly_data</span><span class="field-type">JSON<span class="field-json">{"YYYY-MM":n}</span></span></li>
+        <li><span class="field-name">upload_id / data_record_id</span><span class="field-type">INTEGER<span class="field-fk">FK</span></span></li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>5.2 신규 모델 설계</h3>
+  <div class="model-grid">
+    <div class="model-card new-model">
+      <div class="model-name">FixedExpense &nbsp;<span style="font-size:.72rem;color:var(--yellow);font-weight:400;">FR-004</span></div>
+      <div class="model-table-name">fixed_expense &nbsp;·&nbsp; idx(item_name, upload_id)</div>
+      <ul class="field-list">
+        <li><span class="field-name">sheet_id</span><span class="field-type">INTEGER<span class="field-fk">FK</span></span></li>
+        <li><span class="field-name">account_number</span><span class="field-type">VARCHAR</span></li>
+        <li><span class="field-name">bank_name</span><span class="field-type">VARCHAR</span></li>
+        <li><span class="field-name">account_holder</span><span class="field-type">VARCHAR</span></li>
+        <li><span class="field-name">transfer_name</span><span class="field-type">VARCHAR</span></li>
+        <li><span class="field-name">category</span><span class="field-type">VARCHAR NOT NULL<span class="field-note">idx</span></span></li>
+        <li><span class="field-name">item_name</span><span class="field-type">VARCHAR NOT NULL<span class="field-note">idx</span></span></li>
+        <li><span class="field-name">monthly_amount</span><span class="field-type">NUMERIC(15,2)</span></li>
+        <li><span class="field-name">monthly_data</span><span class="field-type">JSON<span class="field-json">{"2026-01":n}</span></span></li>
+        <li><span class="field-name">upload_id / data_record_id</span><span class="field-type">INTEGER<span class="field-fk">FK</span></span></li>
+      </ul>
+    </div>
+    <div class="model-card new-model">
+      <div class="model-name">MonthlySummary &nbsp;<span style="font-size:.72rem;color:var(--yellow);font-weight:400;">FR-005</span></div>
+      <div class="model-table-name">monthly_summary &nbsp;·&nbsp; idx(year, month, upload_id)</div>
+      <ul class="field-list">
+        <li><span class="field-name">sheet_id</span><span class="field-type">INTEGER<span class="field-fk">FK</span></span></li>
+        <li><span class="field-name">year / month</span><span class="field-type">INTEGER NOT NULL</span></li>
+        <li><span class="field-name">income / expense</span><span class="field-type">NUMERIC(15,2)</span></li>
+        <li><span class="field-name">net_income</span><span class="field-type">NUMERIC(15,2)</span></li>
+        <li><span class="field-name">cumulative_net_income</span><span class="field-type">NUMERIC(15,2)</span></li>
+        <li><span class="field-name">investment_principal</span><span class="field-type">NUMERIC(15,2)</span></li>
+        <li><span class="field-name">investment_value</span><span class="field-type">NUMERIC(15,2)</span></li>
+        <li><span class="field-name">upload_id / data_record_id</span><span class="field-type">INTEGER<span class="field-fk">FK</span></span></li>
+      </ul>
+    </div>
+    <div class="model-card new-model">
+      <div class="model-name">FinancialGoal &nbsp;<span style="font-size:.72rem;color:var(--yellow);font-weight:400;">FR-006</span></div>
+      <div class="model-table-name">financial_goal</div>
+      <ul class="field-list">
+        <li><span class="field-name">sheet_id</span><span class="field-type">INTEGER<span class="field-fk">FK</span></span></li>
+        <li><span class="field-name">goal_name</span><span class="field-type">VARCHAR NOT NULL</span></li>
+        <li><span class="field-name">target_amount</span><span class="field-type">NUMERIC(15,2)</span></li>
+        <li><span class="field-name">start_date / end_date</span><span class="field-type">VARCHAR</span></li>
+        <li><span class="field-name">interest_rate</span><span class="field-type">NUMERIC(5,4)</span></li>
+        <li><span class="field-name">total/elapsed/remaining_weeks</span><span class="field-type">INTEGER</span></li>
+        <li><span class="field-name">progress_rate</span><span class="field-type">NUMERIC(5,4)</span></li>
+        <li><span class="field-name">weekly_allocation</span><span class="field-type">NUMERIC(15,2)</span></li>
+        <li><span class="field-name">planned_data</span><span class="field-type">JSON<span class="field-json">[{date,item,amount}]</span></span></li>
+        <li><span class="field-name">actual_data</span><span class="field-type">JSON<span class="field-json">[{date,item,amount}]</span></span></li>
+        <li><span class="field-name">upload_id</span><span class="field-type">INTEGER<span class="field-fk">FK</span></span></li>
+      </ul>
+    </div>
+    <div class="model-card new-model">
+      <div class="model-name">RealEstateAnalysis &nbsp;<span style="font-size:.72rem;color:var(--yellow);font-weight:400;">FR-007</span></div>
+      <div class="model-table-name">real_estate_analysis</div>
+      <ul class="field-list">
+        <li><span class="field-name">sheet_id</span><span class="field-type">INTEGER<span class="field-fk">FK</span></span></li>
+        <li><span class="field-name">property_name</span><span class="field-type">VARCHAR</span></li>
+        <li><span class="field-name">total_acquisition_cost</span><span class="field-type">NUMERIC(15,2)</span></li>
+        <li><span class="field-name">self_capital / loan_capital</span><span class="field-type">NUMERIC(15,2)</span></li>
+        <li><span class="field-name">current_market_value</span><span class="field-type">NUMERIC(15,2)</span></li>
+        <li><span class="field-name">unrealized_gain</span><span class="field-type">NUMERIC(15,2)</span></li>
+        <li><span class="field-name">roe</span><span class="field-type">NUMERIC(8,4)</span></li>
+        <li><span class="field-name">leverage_multiple</span><span class="field-type">NUMERIC(8,4)</span></li>
+        <li><span class="field-name">acceleration_factor</span><span class="field-type">NUMERIC(8,4)</span></li>
+        <li><span class="field-name">analysis_data</span><span class="field-type">JSON<span class="field-json">{시나리오}</span></span></li>
+        <li><span class="field-name">upload_id / data_record_id</span><span class="field-type">INTEGER<span class="field-fk">FK</span></span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ───── 6. API 설계 ───── -->
+  <h2>6. API 설계</h2>
+
+  <h3>6.1 현재 엔드포인트</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Method</th><th>Path</th><th>설명</th><th>응답</th></tr></thead>
+      <tbody>
+        <tr><td><span class="method post">POST</span></td><td class="path">/api/upload</td><td>Excel 파일 업로드</td><td><code>UploadResponse</code></td></tr>
+        <tr><td><span class="method get">GET</span></td><td class="path">/api/uploads</td><td>업로드 이력 목록</td><td><code>UploadHistory[]</code></td></tr>
+        <tr><td><span class="method get">GET</span></td><td class="path">/api/uploads/{id}</td><td>특정 업로드 상세</td><td><code>UploadHistory</code></td></tr>
+        <tr><td><span class="method get">GET</span></td><td class="path">/api/uploads/{id}/sheets</td><td>시트 목록</td><td><code>SheetData[]</code></td></tr>
+        <tr><td><span class="method get">GET</span></td><td class="path">/api/sheets/{id}</td><td>시트 + 레코드 조회</td><td><code>SheetWithData</code></td></tr>
+        <tr><td><span class="method get">GET</span></td><td class="path">/api/customers</td><td>고객 목록</td><td><code>Customer[]</code></td></tr>
+        <tr><td><span class="method post">POST</span></td><td class="path">/api/sheets/{id}/extract-customer</td><td>고객 추출 및 저장</td><td><code>Customer</code></td></tr>
+        <tr><td><span class="method get">GET</span></td><td class="path">/api/cash-flows</td><td>현금흐름 목록</td><td><code>CashFlow[]</code></td></tr>
+        <tr><td><span class="method post">POST</span></td><td class="path">/api/sheets/{id}/extract-cash-flows</td><td>현금흐름 추출 및 저장</td><td><code>CashFlow[]</code></td></tr>
+        <tr><td><span class="method post">POST</span></td><td class="path">/api/data-records/by-ids</td><td>레코드 ID 배열 조회</td><td><code>DataRecord[]</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>6.2 신규 엔드포인트</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Method</th><th>Path</th><th>설명</th><th>응답</th><th>FR</th></tr></thead>
+      <tbody>
+        <tr><td><span class="method get">GET</span></td><td class="path">/api/fixed-expenses</td><td>고정비 목록 (<code>?sheet_id=</code>)</td><td><code>FixedExpense[]</code></td><td>FR-004</td></tr>
+        <tr><td><span class="method post">POST</span></td><td class="path">/api/sheets/{id}/extract-fixed-expenses</td><td>고정비 추출 및 저장</td><td><code>FixedExpense[]</code></td><td>FR-004</td></tr>
+        <tr><td><span class="method get">GET</span></td><td class="path">/api/monthly-summaries</td><td>월별 요약 목록 (<code>?year=</code>)</td><td><code>MonthlySummary[]</code></td><td>FR-005</td></tr>
+        <tr><td><span class="method post">POST</span></td><td class="path">/api/sheets/{id}/extract-monthly-summary</td><td>월별 요약 추출 및 저장</td><td><code>MonthlySummary[]</code></td><td>FR-005</td></tr>
+        <tr><td><span class="method get">GET</span></td><td class="path">/api/financial-goals</td><td>재무 목표 목록</td><td><code>FinancialGoal[]</code></td><td>FR-006</td></tr>
+        <tr><td><span class="method post">POST</span></td><td class="path">/api/sheets/{id}/extract-financial-goal</td><td>재무 목표 추출 및 저장</td><td><code>FinancialGoal</code></td><td>FR-006</td></tr>
+        <tr><td><span class="method get">GET</span></td><td class="path">/api/real-estate-analyses</td><td>부동산 분석 목록</td><td><code>RealEstateAnalysis[]</code></td><td>FR-007</td></tr>
+        <tr><td><span class="method post">POST</span></td><td class="path">/api/sheets/{id}/extract-real-estate</td><td>부동산 분석 추출 및 저장</td><td><code>RealEstateAnalysis</code></td><td>FR-007</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ───── 7. 구현 가이드 ───── -->
+  <h2>7. 구현 가이드 — 새 데이터 유형 추가 패턴</h2>
+
+  <h3>수정 파일 체크리스트</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>파일</th><th>작업</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><code>backend/app/models/models.py</code></td><td>SQLAlchemy 모델 클래스 추가</td></tr>
+        <tr><td>2</td><td><code>backend/app/schemas/schemas.py</code></td><td>Pydantic Base / Create / Response 스키마</td></tr>
+        <tr><td>3</td><td><code>backend/app/services/data_service.py</code></td><td>상수 + <code>extract_and_save_*()</code> 함수</td></tr>
+        <tr><td>4</td><td><code>backend/app/api/data.py</code></td><td>GET + POST 엔드포인트 2개</td></tr>
+        <tr><td>5</td><td><code>frontend/src/types/index.ts</code></td><td>TypeScript 인터페이스</td></tr>
+        <tr><td>6</td><td><code>frontend/src/lib/api.ts</code></td><td>API 클라이언트 함수 2개</td></tr>
+        <tr><td style="color:var(--text-muted)">7*</td><td><code>backend/app/services/scheduler_service.py</code></td><td>자동 동기화 추가 (선택)</td></tr>
+        <tr><td style="color:var(--text-muted)">8*</td><td><code>alembic/versions/XXX_*.py</code></td><td>DB 마이그레이션 파일</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>추출 함수 표준 패턴</h3>
+  <pre><code># 1단계: 파일 상단에 상수 정의
+NEW_COL_FIELD1 = "1"
+NEW_MONTHLY_COL_RANGE = range(7, 19)   # 01~12월
+NEW_EXCLUDE_KEYWORDS = ["헤더명", "합계", ...]
+
+# 2단계: 추출 함수
+def extract_and_save_new_model(db, sheet_id, upload_id):
+    records = db.query(DataRecord).filter(
+        DataRecord.sheet_id == sheet_id
+    ).order_by(DataRecord.row_index).all()
+
+    # 헤더 행 탐색
+    header_row = next(
+        (r.row_index for r in records
+         if _to_str(r.data.get("1")) == "헤더키워드"), None
+    )
+
+    results = []
+    for record in records:
+        if record.row_index <= header_row:
+            continue
+        item_name = _to_str(record.data.get(NEW_COL_FIELD1))
+        if not item_name or any(k in item_name for k in NEW_EXCLUDE_KEYWORDS):
+            continue
+
+        # 월별 데이터 추출
+        monthly_data = {
+            f"2026-{i - 6:02d}": _to_float(record.data.get(str(i)))
+            for i in NEW_MONTHLY_COL_RANGE
+            if _to_float(record.data.get(str(i))) is not None
+        }
+
+        # Upsert (같은 sheet_id + item_name)
+        existing = db.query(NewModel).filter(
+            NewModel.sheet_id == sheet_id,
+            NewModel.item_name == item_name,
+            NewModel.upload_id == upload_id
+        ).first()
+
+        if existing:
+            existing.monthly_data = monthly_data
+            existing.updated_at = datetime.now()
+        else:
+            existing = NewModel(sheet_id=sheet_id, item_name=item_name,
+                               monthly_data=monthly_data, upload_id=upload_id,
+                               data_record_id=record.id)
+            db.add(existing)
+        results.append(existing)
+
+    db.commit()                       # ← 루프 밖에서 단일 commit (N+1 방지)
+    for r in results:
+        db.refresh(r)
+    return results</code></pre>
+
+  <!-- ───── 8. Phase 로드맵 ───── -->
+  <h2>8. Phase별 구현 로드맵</h2>
+
+  <div class="phase-grid">
+    <div class="phase-card p1">
+      <div class="phase-header">
+        <span class="phase-num p1">1</span>
+        <span class="phase-title-text">FixedExpense</span>
+      </div>
+      <div class="phase-meta">
+        FR-004 &nbsp;|&nbsp; 우선순위: <span class="hi">높음</span> &nbsp;|&nbsp; 복잡도: <span class="stars">⭐⭐</span>
+      </div>
+      <ul class="checklist">
+        <li><code>models.py</code> — FixedExpense 추가</li>
+        <li><code>schemas.py</code> — Base/Create/Response</li>
+        <li><code>data_service.py</code> — 상수 + 추출 함수</li>
+        <li><code>api/data.py</code> — GET + POST</li>
+        <li><code>types/index.ts</code> — 인터페이스</li>
+        <li><code>lib/api.ts</code> — 클라이언트 함수</li>
+        <li>Alembic 마이그레이션 (004)</li>
+      </ul>
+    </div>
+    <div class="phase-card p2">
+      <div class="phase-header">
+        <span class="phase-num p2">2</span>
+        <span class="phase-title-text">MonthlySummary</span>
+      </div>
+      <div class="phase-meta">
+        FR-005 &nbsp;|&nbsp; 우선순위: <span class="hi">높음</span> &nbsp;|&nbsp; 복잡도: <span class="stars">⭐</span>
+      </div>
+      <ul class="checklist">
+        <li><code>models.py</code> — MonthlySummary 추가</li>
+        <li><code>schemas.py</code> — Base/Create/Response</li>
+        <li><code>data_service.py</code> — 행 레이블 매핑 + 추출</li>
+        <li><code>api/data.py</code> — GET + POST</li>
+        <li><code>types/index.ts</code> — 인터페이스</li>
+        <li><code>lib/api.ts</code> — 클라이언트 함수</li>
+        <li>Alembic 마이그레이션 (005)</li>
+      </ul>
+    </div>
+    <div class="phase-card p3">
+      <div class="phase-header">
+        <span class="phase-num p3">3</span>
+        <span class="phase-title-text">FinancialGoal</span>
+      </div>
+      <div class="phase-meta">
+        FR-006 &nbsp;|&nbsp; 우선순위: <span class="med">중간</span> &nbsp;|&nbsp; 복잡도: <span class="stars">⭐⭐⭐</span>
+      </div>
+      <ul class="checklist">
+        <li><code>models.py</code> — FinancialGoal 추가</li>
+        <li><code>schemas.py</code> — Base/Create/Response</li>
+        <li><code>data_service.py</code> — 메타데이터 + 계획/집행 JSON</li>
+        <li><code>api/data.py</code> — GET + POST</li>
+        <li><code>types/index.ts</code> — 인터페이스</li>
+        <li><code>lib/api.ts</code> — 클라이언트 함수</li>
+        <li>Alembic 마이그레이션 (006)</li>
+      </ul>
+    </div>
+    <div class="phase-card p4">
+      <div class="phase-header">
+        <span class="phase-num p4">4</span>
+        <span class="phase-title-text">RealEstateAnalysis</span>
+      </div>
+      <div class="phase-meta">
+        FR-007 &nbsp;|&nbsp; 우선순위: <span class="lo">낮음</span> &nbsp;|&nbsp; 복잡도: <span class="stars">⭐⭐⭐⭐</span>
+      </div>
+      <ul class="checklist">
+        <li><code>models.py</code> — RealEstateAnalysis 추가</li>
+        <li><code>schemas.py</code> — Base/Create/Response</li>
+        <li><code>data_service.py</code> — 표 파싱 + 시나리오 JSON</li>
+        <li><code>api/data.py</code> — GET + POST</li>
+        <li><code>types/index.ts</code> — 인터페이스</li>
+        <li><code>lib/api.ts</code> — 클라이언트 함수</li>
+        <li>Alembic 마이그레이션 (007)</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ───── 9. 마이그레이션 전략 ───── -->
+  <h2>9. 마이그레이션 전략</h2>
+
+  <h3>Alembic 명령어</h3>
+  <pre><code># Docker 실행 중인 상태에서 실행
+docker exec mymoney-backend alembic revision --autogenerate -m "Add FixedExpense model"
+docker exec mymoney-backend alembic upgrade head
+
+# 상태 확인
+docker exec mymoney-backend alembic current
+docker exec mymoney-backend alembic history</code></pre>
+
+  <h3>파일명 네이밍 규칙</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>파일명</th><th>내용</th><th>비고</th></tr></thead>
+      <tbody>
+        <tr><td class="path">001_initial_schema.py</td><td>초기 스키마</td><td class="done">완료</td></tr>
+        <tr><td class="path">002_add_customer_indexes.py</td><td>고객 인덱스</td><td class="done">완료</td></tr>
+        <tr><td class="path">003_add_cashflow_monthly_data.py</td><td>현금흐름 월별 컬럼</td><td class="done">완료</td></tr>
+        <tr><td class="path">004_add_fixed_expense.py</td><td>FixedExpense 모델</td><td class="todo">Phase 1</td></tr>
+        <tr><td class="path">005_add_monthly_summary.py</td><td>MonthlySummary 모델</td><td class="todo">Phase 2</td></tr>
+        <tr><td class="path">006_add_financial_goal.py</td><td>FinancialGoal 모델</td><td class="todo">Phase 3</td></tr>
+        <tr><td class="path">007_add_real_estate_analysis.py</td><td>RealEstateAnalysis 모델</td><td class="todo">Phase 4</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p style="font-size:.85rem;color:var(--text-muted);margin-top:.5rem;">
+    ⚠️ 신규 모델 추가 시 <code>alembic/env.py</code>의 <code>target_metadata</code>에 해당 모델을 import해야 <code>--autogenerate</code>가 정상 작동한다.<br>
+    ⚠️ <code>down_revision</code>이 직전 마이그레이션 파일의 <code>revision</code> ID와 정확히 일치하는지 반드시 확인한다.
+  </p>
+
+  <!-- ───── Appendix ───── -->
+  <h2>부록 — CashFlow vs FixedExpense 비교</h2>
+  <div class="compare-wrap">
+    <table>
+      <thead><tr><th>항목</th><th>CashFlow (현재)</th><th>FixedExpense (신규)</th></tr></thead>
+      <tbody>
+        <tr><td>원본 시트</td><td>뱅샐현황 (실제 내역)</td><td>고정비 (계획 금액)</td></tr>
+        <tr><td>항목 분류</td><td><code>item_type</code>: 수입/지출</td><td><code>category</code>: 저축/용돈/보험/교육</td></tr>
+        <tr><td>월별 변동성</td><td>가변 (실제 거래)</td><td>고정 (사전 설정)</td></tr>
+        <tr><td>데이터 키</td><td><code>{"2025-02": 4135}</code></td><td><code>{"2026-01": 200000}</code></td></tr>
+        <tr><td>헤더 탐색</td><td><code>"2.현금흐름현황"</code></td><td><code>"계좌"</code> 또는 <code>"은행"</code></td></tr>
+        <tr><td>병합 전략</td><td>월 단위 덮어쓰기</td><td>갱신(UPDATE) 위주</td></tr>
+        <tr><td>주요 용도</td><td>실제 소비 패턴 분석</td><td>고정 지출 계획 관리</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer>
+    MyMoney 아키텍처 및 소프트웨어 설계 문서 &nbsp;·&nbsp; 문서 번호: 002 &nbsp;·&nbsp; 2026-03-30 &nbsp;·&nbsp; Claude Code (claude-sonnet-4-6)
+  </footer>
+
+</div>
+</body>
+</html>
