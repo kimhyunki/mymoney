@@ -1,4 +1,4 @@
-import type { UploadHistory, SheetData, SheetWithData, UploadResponse, Customer, CashFlow, DataRecord } from '@/types';
+import type { UploadHistory, SheetData, SheetWithData, UploadResponse, Customer, CashFlow, DataRecord, FixedExpense, MonthlySummary, FinancialGoal, RealEstateAnalysis } from '@/types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8051';
 
@@ -107,6 +107,48 @@ export async function getRecordsByIds(recordIds: number[]): Promise<DataRecord[]
   return fetchAPI<DataRecord[]>('/api/data-records/by-ids', {
     method: 'POST',
     body: JSON.stringify(recordIds),
+  });
+}
+
+export async function getFixedExpenses(sheetId?: number): Promise<FixedExpense[]> {
+  const url = sheetId ? `/api/fixed-expenses?sheet_id=${sheetId}` : '/api/fixed-expenses';
+  return fetchAPI<FixedExpense[]>(url);
+}
+
+export async function extractFixedExpensesFromSheet(sheetId: number): Promise<FixedExpense[]> {
+  return fetchAPI<FixedExpense[]>(`/api/sheets/${sheetId}/extract-fixed-expenses`, {
+    method: 'POST',
+  });
+}
+
+export async function getMonthlySummaries(year?: number): Promise<MonthlySummary[]> {
+  const url = year ? `/api/monthly-summaries?year=${year}` : '/api/monthly-summaries';
+  return fetchAPI<MonthlySummary[]>(url);
+}
+
+export async function extractMonthlySummaryFromSheet(sheetId: number): Promise<MonthlySummary[]> {
+  return fetchAPI<MonthlySummary[]>(`/api/sheets/${sheetId}/extract-monthly-summary`, {
+    method: 'POST',
+  });
+}
+
+export async function getFinancialGoals(): Promise<FinancialGoal[]> {
+  return fetchAPI<FinancialGoal[]>('/api/financial-goals');
+}
+
+export async function extractFinancialGoalFromSheet(sheetId: number): Promise<FinancialGoal> {
+  return fetchAPI<FinancialGoal>(`/api/sheets/${sheetId}/extract-financial-goal`, {
+    method: 'POST',
+  });
+}
+
+export async function getRealEstateAnalyses(): Promise<RealEstateAnalysis[]> {
+  return fetchAPI<RealEstateAnalysis[]>('/api/real-estate-analyses');
+}
+
+export async function extractRealEstateFromSheet(sheetId: number): Promise<RealEstateAnalysis> {
+  return fetchAPI<RealEstateAnalysis>(`/api/sheets/${sheetId}/extract-real-estate`, {
+    method: 'POST',
   });
 }
 

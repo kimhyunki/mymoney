@@ -227,7 +227,7 @@ export default function ChartTypes({ data }: ChartTypesProps) {
   };
 
   // 파이 차트 클릭 핸들러
-  const handlePieChartClick = (data: any, index?: number, e?: any) => {
+  const handlePieChartClick = (data: any, _index?: number, _e?: any) => {
     // Recharts의 Pie onClick은 (data, index, e) 형식으로 호출됨
     // data는 클릭된 섹션의 데이터를 담고 있음
     if (data && data.name) {

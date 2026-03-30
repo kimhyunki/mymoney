@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from typing import List, Optional, Any
-from app.models import UploadHistory, SheetData, DataRecord, Customer, CashFlow
+from app.models import UploadHistory, SheetData, DataRecord, Customer, CashFlow, FixedExpense, MonthlySummary, FinancialGoal, RealEstateAnalysis
 from app.services.excel_parser import convert_datetime_to_string
 
 
@@ -93,3 +93,37 @@ def get_cash_flows(
     if sheet_id:
         query = query.filter(CashFlow.sheet_id == sheet_id)
     return query.offset(skip).limit(limit).all()
+
+
+def get_fixed_expenses(
+    db: Session, sheet_id: Optional[int] = None, skip: int = 0, limit: int = 1000
+) -> List[FixedExpense]:
+    """고정비 조회"""
+    query = db.query(FixedExpense)
+    if sheet_id:
+        query = query.filter(FixedExpense.sheet_id == sheet_id)
+    return query.offset(skip).limit(limit).all()
+
+
+def get_monthly_summaries(
+    db: Session, year: Optional[int] = None, skip: int = 0, limit: int = 1000
+) -> List[MonthlySummary]:
+    """월별 결산 조회"""
+    query = db.query(MonthlySummary)
+    if year:
+        query = query.filter(MonthlySummary.year == year)
+    return query.order_by(MonthlySummary.year, MonthlySummary.month).offset(skip).limit(limit).all()
+
+
+def get_financial_goals(
+    db: Session, skip: int = 0, limit: int = 100
+) -> List[FinancialGoal]:
+    """재무 목표 조회"""
+    return db.query(FinancialGoal).offset(skip).limit(limit).all()
+
+
+def get_real_estate_analyses(
+    db: Session, skip: int = 0, limit: int = 100
+) -> List[RealEstateAnalysis]:
+    """부동산 수익분석 조회"""
+    return db.query(RealEstateAnalysis).offset(skip).limit(limit).all()

@@ -13,6 +13,10 @@ const menuItems: MenuItem[] = [
   { path: '/visualization', label: '데이터 시각화', icon: '📊' },
   { path: '/customers', label: '고객 정보', icon: '👥' },
   { path: '/cashflow', label: '현금 흐름', icon: '💰' },
+  { path: '/fixed-expenses', label: '고정비', icon: '📋' },
+  { path: '/monthly-summary', label: '월별 결산', icon: '📅' },
+  { path: '/financial-goal', label: '분양금 계획', icon: '🏗️' },
+  { path: '/real-estate', label: '부동산 분석', icon: '🏠' },
 ];
 
 export default function Layout() {

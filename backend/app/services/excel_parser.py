@@ -64,6 +64,9 @@ def parse_excel_file(file_content: bytes, filename: str) -> Dict[str, Any]:
                 logger.info("formula 워크북 로딩 완료")
             return workbook_formula[sname]
 
+        # 연속 빈 행이 이 수를 초과하면 시트 처리 종료 (Excel ghost row 방지)
+        CONSECUTIVE_EMPTY_LIMIT = 50
+
         for sheet_name in workbook_data_only.sheetnames:
             sheet_data_only = workbook_data_only[sheet_name]
             data = []
@@ -72,11 +75,24 @@ def parse_excel_file(file_content: bytes, filename: str) -> Dict[str, Any]:
                 f"시트 '{sheet_name}' 데이터 읽기 시작 "
                 f"(최대 행: {sheet_data_only.max_row}, 최대 열: {sheet_data_only.max_column})"
             )
+            consecutive_empty = 0
             for row_num, row_data_only in enumerate(
                 sheet_data_only.iter_rows(values_only=True), 1
             ):
                 if row_num % 1000 == 0:
                     logger.info(f"시트 '{sheet_name}' {row_num}행 처리 중...")
+
+                # 행 전체가 비어있으면 formula 워크북 참조 없이 바로 skip
+                if all(cell is None or cell == "" for cell in row_data_only):
+                    consecutive_empty += 1
+                    if consecutive_empty >= CONSECUTIVE_EMPTY_LIMIT:
+                        logger.info(
+                            f"시트 '{sheet_name}': 연속 빈 행 {CONSECUTIVE_EMPTY_LIMIT}개 도달, "
+                            f"처리 종료 (마지막 처리 행: {row_num})"
+                        )
+                        break
+                    continue
+                consecutive_empty = 0
 
                 row_data = []
                 for col_idx, cell_value in enumerate(row_data_only, 1):

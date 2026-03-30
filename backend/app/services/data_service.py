@@ -17,9 +17,17 @@ from app.services.crud import (
     get_records_by_ids,
     get_customers,
     get_cash_flows,
+    get_fixed_expenses,
+    get_monthly_summaries,
+    get_financial_goals,
+    get_real_estate_analyses,
 )
 from app.services.customer_service import extract_and_save_customer_from_data_record
 from app.services.cash_flow_service import extract_and_save_cash_flows_from_data_record
+from app.services.fixed_expense_service import extract_and_save_fixed_expenses_from_data_record
+from app.services.monthly_summary_service import extract_and_save_monthly_summary_from_data_record
+from app.services.financial_goal_service import extract_and_save_financial_goal_from_data_record
+from app.services.real_estate_service import extract_and_save_real_estate_from_data_record
 
 __all__ = [
     "parse_date_range_from_filename",
@@ -36,6 +44,14 @@ __all__ = [
     "get_records_by_ids",
     "get_customers",
     "get_cash_flows",
+    "get_fixed_expenses",
+    "get_monthly_summaries",
+    "get_financial_goals",
+    "get_real_estate_analyses",
     "extract_and_save_customer_from_data_record",
     "extract_and_save_cash_flows_from_data_record",
+    "extract_and_save_fixed_expenses_from_data_record",
+    "extract_and_save_monthly_summary_from_data_record",
+    "extract_and_save_financial_goal_from_data_record",
+    "extract_and_save_real_estate_from_data_record",
 ]

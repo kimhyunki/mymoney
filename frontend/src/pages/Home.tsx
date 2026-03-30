@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getUploads, getCustomers, getCashFlows } from '@/lib/api';
+import { getUploads, getCustomers, getCashFlows, getFixedExpenses, getMonthlySummaries } from '@/lib/api';
 import { Link } from 'react-router-dom';
 
 export default function Home() {
@@ -15,8 +15,23 @@ export default function Home() {
 
   const { data: cashFlows = [] } = useQuery({
     queryKey: ['cashFlows'],
-    queryFn: getCashFlows,
+    queryFn: () => getCashFlows(),
   });
+
+  const { data: fixedExpenses = [] } = useQuery({
+    queryKey: ['fixedExpenses'],
+    queryFn: () => getFixedExpenses(),
+  });
+
+  const { data: monthlySummaries = [] } = useQuery({
+    queryKey: ['monthlySummaries'],
+    queryFn: () => getMonthlySummaries(),
+  });
+
+  const now = new Date();
+  const currentMonthSummary = monthlySummaries.find(
+    s => s.year === now.getFullYear() && s.month === now.getMonth() + 1
+  );
 
   const stats = [
     {
@@ -38,6 +53,22 @@ export default function Home() {
       value: cashFlows.length,
       icon: '💰',
       link: '/cashflow',
+      color: 'var(--md-sys-light-secondary-container)',
+    },
+    {
+      label: '고정비 항목',
+      value: fixedExpenses.length,
+      icon: '📋',
+      link: '/fixed-expenses',
+      color: 'var(--md-sys-light-secondary-container)',
+    },
+    {
+      label: '이번 달 순수익',
+      value: currentMonthSummary?.net_income != null
+        ? `${(currentMonthSummary.net_income / 10_000).toFixed(0)}만원`
+        : '-',
+      icon: '📅',
+      link: '/monthly-summary',
       color: 'var(--md-sys-light-secondary-container)',
     },
   ];
@@ -134,7 +165,7 @@ export default function Home() {
                       margin: 0,
                     }}
                   >
-                    {stat.value.toLocaleString()}
+                    {typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value}
                   </p>
                 </div>
               </div>

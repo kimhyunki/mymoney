@@ -9,7 +9,11 @@ from app.schemas.schemas import (
     DataRecordResponse,
     SheetWithDataResponse,
     CustomerResponse,
-    CashFlowResponse
+    CashFlowResponse,
+    FixedExpenseResponse,
+    MonthlySummaryResponse,
+    FinancialGoalResponse,
+    RealEstateAnalysisResponse,
 )
 
 router = APIRouter()
@@ -128,6 +132,122 @@ async def extract_cash_flows_from_sheet(
         upload_id=sheet.upload_id
     )
     return cash_flows
+
+@router.get("/fixed-expenses", response_model=List[FixedExpenseResponse])
+async def get_fixed_expenses(
+    sheet_id: Optional[int] = None,
+    skip: int = 0,
+    limit: int = 1000,
+    db: Session = Depends(get_db)
+):
+    """고정비 목록 조회"""
+    return data_service.get_fixed_expenses(db=db, sheet_id=sheet_id, skip=skip, limit=limit)
+
+@router.post("/sheets/{sheet_id}/extract-fixed-expenses", response_model=List[FixedExpenseResponse])
+async def extract_fixed_expenses_from_sheet(
+    sheet_id: int,
+    db: Session = Depends(get_db)
+):
+    """시트에서 고정비를 추출하여 fixed_expense 테이블에 저장"""
+    sheet = data_service.get_sheet_data(db=db, sheet_id=sheet_id)
+    if not sheet:
+        raise HTTPException(status_code=404, detail="시트를 찾을 수 없습니다.")
+
+    if not sheet.upload_id:
+        raise HTTPException(status_code=400, detail="시트에 업로드 ID가 없습니다.")
+
+    return data_service.extract_and_save_fixed_expenses_from_data_record(
+        db=db,
+        sheet_id=sheet_id,
+        upload_id=sheet.upload_id,
+    )
+
+@router.get("/monthly-summaries", response_model=List[MonthlySummaryResponse])
+async def get_monthly_summaries(
+    year: Optional[int] = None,
+    skip: int = 0,
+    limit: int = 1000,
+    db: Session = Depends(get_db)
+):
+    """월별 결산 목록 조회"""
+    return data_service.get_monthly_summaries(db=db, year=year, skip=skip, limit=limit)
+
+@router.post("/sheets/{sheet_id}/extract-monthly-summary", response_model=List[MonthlySummaryResponse])
+async def extract_monthly_summary_from_sheet(
+    sheet_id: int,
+    db: Session = Depends(get_db)
+):
+    """시트에서 월별 결산을 추출하여 monthly_summary 테이블에 저장"""
+    sheet = data_service.get_sheet_data(db=db, sheet_id=sheet_id)
+    if not sheet:
+        raise HTTPException(status_code=404, detail="시트를 찾을 수 없습니다.")
+
+    if not sheet.upload_id:
+        raise HTTPException(status_code=400, detail="시트에 업로드 ID가 없습니다.")
+
+    return data_service.extract_and_save_monthly_summary_from_data_record(
+        db=db,
+        sheet_id=sheet_id,
+        upload_id=sheet.upload_id,
+    )
+
+@router.get("/financial-goals", response_model=List[FinancialGoalResponse])
+async def get_financial_goals(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    """재무 목표 목록 조회"""
+    return data_service.get_financial_goals(db=db, skip=skip, limit=limit)
+
+@router.post("/sheets/{sheet_id}/extract-financial-goal", response_model=FinancialGoalResponse)
+async def extract_financial_goal_from_sheet(
+    sheet_id: int,
+    db: Session = Depends(get_db)
+):
+    """시트에서 재무 목표를 추출하여 financial_goal 테이블에 저장"""
+    sheet = data_service.get_sheet_data(db=db, sheet_id=sheet_id)
+    if not sheet:
+        raise HTTPException(status_code=404, detail="시트를 찾을 수 없습니다.")
+
+    if not sheet.upload_id:
+        raise HTTPException(status_code=400, detail="시트에 업로드 ID가 없습니다.")
+
+    result = data_service.extract_and_save_financial_goal_from_data_record(
+        db=db, sheet_id=sheet_id, upload_id=sheet.upload_id
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail="재무 목표 데이터를 찾을 수 없습니다.")
+    return result
+
+@router.get("/real-estate-analyses", response_model=List[RealEstateAnalysisResponse])
+async def get_real_estate_analyses(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    """부동산 수익분석 목록 조회"""
+    return data_service.get_real_estate_analyses(db=db, skip=skip, limit=limit)
+
+@router.post("/sheets/{sheet_id}/extract-real-estate", response_model=RealEstateAnalysisResponse)
+async def extract_real_estate_from_sheet(
+    sheet_id: int,
+    db: Session = Depends(get_db)
+):
+    """시트에서 부동산 수익분석을 추출하여 real_estate_analysis 테이블에 저장"""
+    sheet = data_service.get_sheet_data(db=db, sheet_id=sheet_id)
+    if not sheet:
+        raise HTTPException(status_code=404, detail="시트를 찾을 수 없습니다.")
+
+    if not sheet.upload_id:
+        raise HTTPException(status_code=400, detail="시트에 업로드 ID가 없습니다.")
+
+    result = data_service.extract_and_save_real_estate_from_data_record(
+        db=db, sheet_id=sheet_id, upload_id=sheet.upload_id
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail="부동산 수익분석 데이터를 찾을 수 없습니다.")
+    return result
 
 @router.post("/data-records/by-ids", response_model=List[DataRecordResponse])
 async def get_records_by_ids(
