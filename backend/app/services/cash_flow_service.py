@@ -192,6 +192,7 @@ def extract_and_save_cash_flows_from_data_record(
 ) -> List[CashFlow]:
     """
     data_record에서 현금 흐름 현황을 추출하여 cash_flow 테이블에 저장합니다.
+    bulk upsert + 단일 commit으로 N+1 쿼리 문제를 해결합니다.
     """
     sheet = db.query(SheetData).filter(SheetData.id == sheet_id).first()
     if not sheet:
@@ -221,7 +222,32 @@ def extract_and_save_cash_flows_from_data_record(
     if header_row_index is None:
         return []
 
-    cash_flows = []
+    # ── Pre-fetch: 행마다 SELECT 대신 bulk 로드 (P1) ──────────────────────
+    # 1) 같은 (sheet_id, upload_id) 기존 레코드
+    existing_same: Dict[str, CashFlow] = {
+        cf.item_name: cf
+        for cf in db.query(CashFlow).filter(
+            CashFlow.sheet_id == sheet_id,
+            CashFlow.upload_id == upload_id,
+        ).all()
+    }
+
+    # 2) 항목명별 최신 업로드 레코드 (cross-upload 병합용)
+    latest_by_item: Dict[str, tuple] = {}
+    for cf, uh in (
+        db.query(CashFlow, UploadHistory)
+        .join(UploadHistory, CashFlow.upload_id == UploadHistory.id)
+        .all()
+    ):
+        prev = latest_by_item.get(cf.item_name)
+        if prev is None or uh.uploaded_at > prev[1].uploaded_at:
+            latest_by_item[cf.item_name] = (cf, uh)
+    # ─────────────────────────────────────────────────────────────────────
+
+    now = datetime.now()
+    result_cash_flows: List[CashFlow] = []
+    new_records: List[CashFlow] = []
+
     for record in records:
         if record.row_index <= header_row_index:
             continue
@@ -232,68 +258,37 @@ def extract_and_save_cash_flows_from_data_record(
 
         item_name, total, monthly_average, monthly_data, item_type = row
 
-        # 같은 sheet_id + item_name + upload_id upsert
-        existing = db.query(CashFlow).filter(
-            CashFlow.sheet_id == sheet_id,
-            CashFlow.item_name == item_name,
-            CashFlow.upload_id == upload_id,
-        ).first()
-
-        if existing:
+        if item_name in existing_same:
+            # 같은 (sheet_id, upload_id) upsert — DB 접근 없이 메모리에서 수정
+            existing = existing_same[item_name]
             existing.item_type = item_type
             existing.total = total
             existing.monthly_average = monthly_average
             existing.monthly_data = monthly_data
             existing.data_record_id = record.id
-            existing.updated_at = datetime.now()
-            db.commit()
-            db.refresh(existing)
-            cash_flows.append(existing)
-            continue
+            existing.updated_at = now
+            result_cash_flows.append(existing)
 
-        # 같은 항목명의 다른 업로드 확인 (월별 데이터 병합)
-        existing_by_item = (
-            db.query(CashFlow)
-            .filter(CashFlow.item_name == item_name)
-            .join(UploadHistory, CashFlow.upload_id == UploadHistory.id)
-            .order_by(UploadHistory.uploaded_at.desc())
-            .first()
-        )
+        elif item_name in latest_by_item:
+            # cross-upload 병합 — DB 접근 없이 메모리에서 수정
+            existing_cf, existing_upload = latest_by_item[item_name]
+            merged = _merge_monthly_data(
+                existing_cf.monthly_data, monthly_data, current_upload, existing_upload
+            )
+            existing_cf.monthly_data = merged
+            existing_cf.updated_at = now
+            if is_upload_newer(current_upload, existing_upload):
+                existing_cf.item_type = item_type
+                existing_cf.total = total
+                existing_cf.monthly_average = monthly_average
+                existing_cf.upload_id = upload_id
+                existing_cf.sheet_id = sheet_id
+                existing_cf.data_record_id = record.id
+            result_cash_flows.append(existing_cf)
 
-        if existing_by_item:
-            existing_upload = db.query(UploadHistory).filter(
-                UploadHistory.id == existing_by_item.upload_id
-            ).first()
-
-            if existing_upload:
-                merged = _merge_monthly_data(
-                    existing_by_item.monthly_data, monthly_data, current_upload, existing_upload
-                )
-                existing_by_item.monthly_data = merged
-                existing_by_item.updated_at = datetime.now()
-
-                if is_upload_newer(current_upload, existing_upload):
-                    existing_by_item.item_type = item_type
-                    existing_by_item.total = total
-                    existing_by_item.monthly_average = monthly_average
-                    existing_by_item.upload_id = upload_id
-                    existing_by_item.sheet_id = sheet_id
-                    existing_by_item.data_record_id = record.id
-            else:
-                existing_by_item.item_type = item_type
-                existing_by_item.total = total
-                existing_by_item.monthly_average = monthly_average
-                existing_by_item.monthly_data = monthly_data
-                existing_by_item.upload_id = upload_id
-                existing_by_item.sheet_id = sheet_id
-                existing_by_item.data_record_id = record.id
-                existing_by_item.updated_at = datetime.now()
-
-            db.commit()
-            db.refresh(existing_by_item)
-            cash_flows.append(existing_by_item)
         else:
-            cash_flow = CashFlow(
+            # 신규 레코드
+            cf = CashFlow(
                 sheet_id=sheet_id,
                 item_name=item_name,
                 item_type=item_type,
@@ -303,9 +298,15 @@ def extract_and_save_cash_flows_from_data_record(
                 upload_id=upload_id,
                 data_record_id=record.id,
             )
-            db.add(cash_flow)
-            db.commit()
-            db.refresh(cash_flow)
-            cash_flows.append(cash_flow)
+            new_records.append(cf)
+            result_cash_flows.append(cf)
 
-    return cash_flows
+    # ── 단일 commit ───────────────────────────────────────────────────────
+    if new_records:
+        db.add_all(new_records)
+    db.commit()
+
+    for cf in result_cash_flows:
+        db.refresh(cf)
+
+    return result_cash_flows

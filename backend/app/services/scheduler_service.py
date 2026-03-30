@@ -1,29 +1,54 @@
 """
-스케줄러 서비스 - 주기적으로 customer 테이블을 업데이트
+스케줄러 서비스 - 주기적으로 customer / cash_flow 테이블을 업데이트
+새로 업로드된 시트만 처리하여 풀스캔을 방지합니다 (P3).
 """
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy.orm import Session
+from datetime import datetime
+from typing import Optional
 from app.database import SessionLocal
 from app.services import data_service
-from app.models import SheetData, Customer, CashFlow, DataRecord
+from app.models import SheetData, Customer, CashFlow, DataRecord, UploadHistory
 import logging
 
 logger = logging.getLogger(__name__)
 
 scheduler = BackgroundScheduler()
 
+# 마지막 동기화 시각 (메모리 추적 — 새 업로드만 처리하기 위함)
+_last_customer_sync: Optional[datetime] = None
+_last_cash_flow_sync: Optional[datetime] = None
+
+
+def _get_sheets_to_sync(db: Session, last_sync: Optional[datetime]) -> list:
+    """last_sync 이후 새로 업로드된 시트만 반환. 최초 실행 시 전체 반환."""
+    if last_sync is None:
+        return db.query(SheetData).all()
+    new_upload_ids = [
+        row.id
+        for row in db.query(UploadHistory.id).filter(
+            UploadHistory.uploaded_at > last_sync
+        ).all()
+    ]
+    if not new_upload_ids:
+        return []
+    return db.query(SheetData).filter(SheetData.upload_id.in_(new_upload_ids)).all()
+
+
 def sync_customers_from_data_records():
     """
-    모든 시트를 스캔하여 customer 테이블을 업데이트합니다.
-    주기적으로 실행되는 함수입니다.
+    신규 업로드 시트만 스캔하여 customer 테이블을 업데이트합니다.
     """
+    global _last_customer_sync
     db: Session = SessionLocal()
     try:
         logger.info("=== 고객정보 동기화 시작 ===")
-        
-        # 모든 시트 조회
-        sheets = db.query(SheetData).all()
+
+        sheets = _get_sheets_to_sync(db, _last_customer_sync)
+        if not sheets:
+            logger.info("새로운 업로드 없음 — 고객정보 동기화 건너뜀")
+            return
         logger.info(f"총 {len(sheets)}개의 시트를 확인합니다.")
         
         updated_count = 0
@@ -66,7 +91,8 @@ def sync_customers_from_data_records():
         logger.info(
             f"=== 고객정보 동기화 완료 - 생성: {created_count}, 업데이트: {updated_count} ==="
         )
-        
+        _last_customer_sync = datetime.now()
+
     except Exception as e:
         logger.error(f"고객정보 동기화 중 오류 발생: {str(e)}", exc_info=True)
     finally:
@@ -74,15 +100,17 @@ def sync_customers_from_data_records():
 
 def sync_cash_flows_from_data_records():
     """
-    모든 시트를 스캔하여 cash_flow 테이블을 업데이트합니다.
-    주기적으로 실행되는 함수입니다.
+    신규 업로드 시트만 스캔하여 cash_flow 테이블을 업데이트합니다.
     """
+    global _last_cash_flow_sync
     db: Session = SessionLocal()
     try:
         logger.info("=== 현금 흐름 현황 동기화 시작 ===")
-        
-        # 모든 시트 조회
-        sheets = db.query(SheetData).all()
+
+        sheets = _get_sheets_to_sync(db, _last_cash_flow_sync)
+        if not sheets:
+            logger.info("새로운 업로드 없음 — 현금흐름 동기화 건너뜀")
+            return
         logger.info(f"총 {len(sheets)}개의 시트를 확인합니다.")
         
         updated_count = 0
@@ -128,7 +156,8 @@ def sync_cash_flows_from_data_records():
         logger.info(
             f"=== 현금 흐름 현황 동기화 완료 - 생성: {created_count}, 업데이트: {updated_count} ==="
         )
-        
+        _last_cash_flow_sync = datetime.now()
+
     except Exception as e:
         logger.error(f"현금 흐름 현황 동기화 중 오류 발생: {str(e)}", exc_info=True)
     finally:
