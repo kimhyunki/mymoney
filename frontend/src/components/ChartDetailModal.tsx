@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import type { ChartDetailData } from '@/types';
+import { formatNumber } from '@/utils/format';
 
 interface ChartDetailModalProps {
   isOpen: boolean;
@@ -23,36 +24,6 @@ export default function ChartDetailModal({ isOpen, onClose, data }: ChartDetailM
   if (!isOpen || !data) {
     return null;
   }
-
-  // 숫자 포맷팅 함수
-  const formatNumber = (value: any): string => {
-    if (value === null || value === undefined) {
-      return '';
-    }
-    
-    if (typeof value === 'number') {
-      if (Number.isInteger(value)) {
-        return value.toLocaleString('ko-KR');
-      }
-      return value.toLocaleString('ko-KR', { 
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 2 
-      });
-    }
-    
-    const numValue = Number(value);
-    if (!isNaN(numValue) && value !== '') {
-      if (Number.isInteger(numValue)) {
-        return numValue.toLocaleString('ko-KR');
-      }
-      return numValue.toLocaleString('ko-KR', { 
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 2 
-      });
-    }
-    
-    return String(value);
-  };
 
   return (
     <>

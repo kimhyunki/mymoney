@@ -4,6 +4,7 @@ from calendar import monthrange
 from typing import List, Optional, Any, Tuple
 from datetime import datetime, date, time
 from app.models import UploadHistory, SheetData, DataRecord, Customer, CashFlow
+from app.services.excel_parser import convert_datetime_to_string
 
 def parse_date_range_from_filename(filename: str) -> Optional[Tuple[date, date]]:
     """
@@ -88,32 +89,13 @@ def create_sheet_data(db: Session, upload_id: int, sheet_name: str, row_count: i
     db.refresh(sheet)
     return sheet
 
-def _convert_datetime_to_string(value: Any) -> Any:
-    """
-    datetime, date, time 객체를 ISO 형식 문자열로 변환합니다.
-    다른 타입의 값은 그대로 반환합니다.
-    
-    Args:
-        value: 변환할 값
-    
-    Returns:
-        datetime/date/time 객체는 ISO 형식 문자열, 그 외는 원본 값
-    """
-    if isinstance(value, datetime):
-        return value.isoformat()
-    elif isinstance(value, date):
-        return value.isoformat()
-    elif isinstance(value, time):
-        return value.isoformat()
-    return value
-
 def create_data_records(db: Session, sheet_id: int, data: List[List[Any]]) -> List[DataRecord]:
     """데이터 레코드 생성"""
     records = []
     for row_index, row_data in enumerate(data):
         # 행 데이터를 딕셔너리로 변환 (열 인덱스를 키로 사용)
         # datetime 객체가 있는 경우 문자열로 변환 (이중 보호)
-        row_dict = {str(i): _convert_datetime_to_string(value) for i, value in enumerate(row_data)}
+        row_dict = {str(i): convert_datetime_to_string(value) for i, value in enumerate(row_data)}
         record = DataRecord(
             sheet_id=sheet_id,
             row_index=row_index,
@@ -452,7 +434,6 @@ def extract_and_save_cash_flows_from_data_record(db: Session, sheet_id: int, upl
         ]
         
         # 숫자만 있는 항목 제외
-        import re
         if not item_name or item_name in exclude_keywords:
             continue
         

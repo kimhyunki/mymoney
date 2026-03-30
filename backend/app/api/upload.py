@@ -4,8 +4,11 @@ from app.database import get_db
 from app.services import excel_parser, data_service
 from app.schemas.schemas import UploadResponse
 import io
+import os
 import logging
 from datetime import datetime
+
+MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50MB
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +27,16 @@ async def upload_file(
     logger.info(f"파일명: {file.filename}")
     logger.info(f"Content-Type: {file.content_type}")
     
+    # 파일명 검증 (S1: None 체크 + Path Traversal 방어)
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="파일명이 없습니다.")
+    safe_filename = os.path.basename(file.filename)
+    if not safe_filename:
+        raise HTTPException(status_code=400, detail="유효하지 않은 파일명입니다.")
+
     # 파일 확장자 검증
-    if not (file.filename.endswith('.xlsx') or file.filename.endswith('.xls')):
-        logger.warning(f"지원하지 않는 파일 형식: {file.filename}")
+    if not (safe_filename.endswith('.xlsx') or safe_filename.endswith('.xls')):
+        logger.warning(f"지원하지 않는 파일 형식: {safe_filename}")
         raise HTTPException(status_code=400, detail="지원하는 파일 형식은 .xlsx 또는 .xls입니다.")
     
     try:
@@ -35,11 +45,18 @@ async def upload_file(
         file_content = await file.read()
         file_size = len(file_content)
         logger.info(f"파일 크기: {file_size:,} bytes ({file_size / 1024 / 1024:.2f} MB)")
+
+        # 파일 크기 검증 (S2: 50MB 상한)
+        if file_size > MAX_UPLOAD_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"파일 크기가 너무 큽니다. 최대 {MAX_UPLOAD_SIZE // (1024 * 1024)}MB까지 업로드 가능합니다."
+            )
         
         # 엑셀 파일 파싱
         logger.info(f"엑셀 파일 파싱 시작...")
         parse_start = datetime.now()
-        parsed_data = excel_parser.parse_excel_file(file_content, file.filename)
+        parsed_data = excel_parser.parse_excel_file(file_content, safe_filename)
         parse_duration = (datetime.now() - parse_start).total_seconds()
         logger.info(f"파싱 완료 (소요 시간: {parse_duration:.2f}초)")
         
@@ -58,7 +75,7 @@ async def upload_file(
         logger.info(f"데이터베이스에 업로드 이력 저장 중...")
         upload = data_service.create_upload_history(
             db=db,
-            filename=file.filename,
+            filename=safe_filename,
             sheet_count=parsed_data["sheet_count"]
         )
         logger.info(f"업로드 이력 생성 완료 (ID: {upload.id})")
