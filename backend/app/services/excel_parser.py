@@ -49,91 +49,63 @@ def parse_excel_file(file_content: bytes, filename: str) -> Dict[str, Any]:
     sheets_data = []
     
     if filename.endswith('.xlsx'):
-        # 먼저 data_only=True로 계산된 값을 읽기
-        # file_content는 bytes이므로 새로운 BytesIO 객체를 만들어야 함
-        # read_only=True로 메모리 사용량 최적화
-        file_content_copy1 = io.BytesIO(file_content)
-        file_content_copy2 = io.BytesIO(file_content)
-        
-        logger.info(f"워크북 로딩 시작...")
-        # read_only=False로 변경 (수식 계산을 위해 필요)
-        workbook_data_only = openpyxl.load_workbook(file_content_copy1, data_only=True)
+        # data_only=True로 먼저 로드, formula 워크북은 None 셀 발견 시에만 lazy 로딩 (P2)
+        logger.info(f"워크북 (data_only=True) 로딩 시작...")
+        workbook_data_only = openpyxl.load_workbook(io.BytesIO(file_content), data_only=True)
         logger.info(f"워크북 (data_only=True) 로딩 완료")
-        
-        # 수식 확인이 필요한 경우에만 data_only=False로 로드
-        workbook_formula = openpyxl.load_workbook(file_content_copy2, data_only=False)
-        logger.info(f"워크북 (data_only=False) 로딩 완료")
-        
+
+        workbook_formula = None  # lazy: None 셀이 존재할 때만 로드
+
+        def _get_formula_sheet(sname: str):
+            nonlocal workbook_formula
+            if workbook_formula is None:
+                logger.info("수식 확인 필요 — formula 워크북 lazy 로딩 시작")
+                workbook_formula = openpyxl.load_workbook(io.BytesIO(file_content), data_only=False)
+                logger.info("formula 워크북 로딩 완료")
+            return workbook_formula[sname]
+
         for sheet_name in workbook_data_only.sheetnames:
             sheet_data_only = workbook_data_only[sheet_name]
-            sheet_formula = workbook_formula[sheet_name]
             data = []
-            
-            # 행과 열의 최대 범위를 계산
-            max_row_data = sheet_data_only.max_row if sheet_data_only.max_row else 0
-            max_row_formula = sheet_formula.max_row if sheet_formula.max_row else 0
-            max_row = max(max_row_data, max_row_formula)
-            
-            max_col_data = sheet_data_only.max_column if sheet_data_only.max_column else 0
-            max_col_formula = sheet_formula.max_column if sheet_formula.max_column else 0
-            max_col = max(max_col_data, max_col_formula)
-            
-            # iter_rows를 사용하여 더 효율적으로 읽기
-            logger.info(f"시트 '{sheet_name}' 데이터 읽기 시작 (최대 행: {max_row}, 최대 열: {max_col})")
-            row_num = 0
-            for row_data_only, row_formula in zip(
-                sheet_data_only.iter_rows(values_only=True),
-                sheet_formula.iter_rows(values_only=False)
+
+            logger.info(
+                f"시트 '{sheet_name}' 데이터 읽기 시작 "
+                f"(최대 행: {sheet_data_only.max_row}, 최대 열: {sheet_data_only.max_column})"
+            )
+            for row_num, row_data_only in enumerate(
+                sheet_data_only.iter_rows(values_only=True), 1
             ):
-                row_num += 1
-                row_data = []
-                
-                # 진행 상황 로깅 (1000행마다)
                 if row_num % 1000 == 0:
                     logger.info(f"시트 '{sheet_name}' {row_num}행 처리 중...")
-                
-                for col_idx, (cell_value, cell_formula_obj) in enumerate(zip(row_data_only, row_formula), 1):
-                    # 계산된 값이 None이거나 빈 값이고, 수식이 있는 경우
-                    if (cell_value is None or cell_value == "") and cell_formula_obj.data_type == 'f':
-                        # 수식이 있으면 수식을 읽어서 처리
-                        formula = cell_formula_obj.value
-                        
-                        # 수식 타입 확인 (문자열이 아닌 경우 ArrayFormula 등)
-                        if not isinstance(formula, str):
-                            logger.debug(
-                                f"시트 '{sheet_name}'의 셀 {openpyxl.utils.get_column_letter(col_idx)}{row_num}에 "
-                                f"복잡한 수식 타입이 있습니다 (처리 불가): {type(formula).__name__}"
-                            )
-                            # 복잡한 수식은 계산할 수 없으므로 0으로 설정
-                            cell_value = 0
-                        else:
-                            logger.warning(
-                                f"시트 '{sheet_name}'의 셀 {openpyxl.utils.get_column_letter(col_idx)}{row_num}에 "
-                                f"수식이 있지만 계산된 값이 없습니다: {formula}"
-                            )
-                            # 수식 결과를 계산하려고 시도 (간단한 수식만 처리)
-                            calculated_value = _try_calculate_simple_formula(
-                                formula, sheet_data_only, row_num, col_idx
-                            )
-                            if calculated_value is not None:
-                                cell_value = calculated_value
-                                logger.info(
-                                    f"시트 '{sheet_name}'의 셀 {openpyxl.utils.get_column_letter(col_idx)}{row_num} "
-                                    f"수식 계산 결과: {calculated_value}"
-                                )
-                            else:
-                                # 계산할 수 없으면 0으로 설정 (또는 빈 문자열)
-                                cell_value = 0
+
+                row_data = []
+                for col_idx, cell_value in enumerate(row_data_only, 1):
+                    # 계산된 값이 None/빈 값이면 formula 워크북을 lazy 로드해 확인
+                    if cell_value is None or cell_value == "":
+                        formula_sheet = _get_formula_sheet(sheet_name)
+                        cell_formula_obj = formula_sheet.cell(row=row_num, column=col_idx)
+                        if cell_formula_obj.data_type == 'f':
+                            formula = cell_formula_obj.value
+                            if not isinstance(formula, str):
                                 logger.debug(
-                                    f"시트 '{sheet_name}'의 셀 {openpyxl.utils.get_column_letter(col_idx)}{row_num} "
-                                    f"수식을 계산할 수 없습니다. 0으로 설정합니다."
+                                    f"셀 {openpyxl.utils.get_column_letter(col_idx)}{row_num}: "
+                                    f"복잡한 수식 타입 ({type(formula).__name__}), 0으로 설정"
                                 )
-                    
-                    # None 값 제거 및 리스트로 변환, datetime 객체는 문자열로 변환
+                                cell_value = 0
+                            else:
+                                logger.warning(
+                                    f"셀 {openpyxl.utils.get_column_letter(col_idx)}{row_num}: "
+                                    f"수식이지만 계산값 없음 ({formula})"
+                                )
+                                calculated = _try_calculate_simple_formula(
+                                    formula, sheet_data_only, row_num, col_idx
+                                )
+                                cell_value = calculated if calculated is not None else 0
+
                     cell_result = convert_datetime_to_string(cell_value) if cell_value is not None else ""
                     row_data.append(cell_result)
-                
-                if any(cell != "" for cell in row_data):  # 빈 행 제외
+
+                if any(cell != "" for cell in row_data):
                     data.append(row_data)
             
             if data:
