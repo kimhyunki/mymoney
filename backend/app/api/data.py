@@ -97,9 +97,7 @@ async def get_customers(
     db: Session = Depends(get_db)
 ):
     """고객 목록 조회"""
-    from app.models import Customer
-    customers = db.query(Customer).offset(skip).limit(limit).all()
-    return customers
+    return data_service.get_customers(db=db, skip=skip, limit=limit)
 
 @router.get("/cash-flows", response_model=List[CashFlowResponse])
 async def get_cash_flows(
@@ -109,12 +107,7 @@ async def get_cash_flows(
     db: Session = Depends(get_db)
 ):
     """현금 흐름 현황 조회"""
-    from app.models import CashFlow
-    query = db.query(CashFlow)
-    if sheet_id:
-        query = query.filter(CashFlow.sheet_id == sheet_id)
-    cash_flows = query.offset(skip).limit(limit).all()
-    return cash_flows
+    return data_service.get_cash_flows(db=db, sheet_id=sheet_id, skip=skip, limit=limit)
 
 @router.post("/sheets/{sheet_id}/extract-cash-flows", response_model=List[CashFlowResponse])
 async def extract_cash_flows_from_sheet(
