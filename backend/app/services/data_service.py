@@ -6,6 +6,63 @@ from datetime import datetime, date, time
 from app.models import UploadHistory, SheetData, DataRecord, Customer, CashFlow
 from app.services.excel_parser import convert_datetime_to_string
 
+# --- 현금흐름 컬럼 인덱스 ---
+COL_ITEM_NAME = "1"
+COL_TOTAL = "2"
+COL_MONTHLY_AVG = "3"
+MONTHLY_COL_RANGE = range(4, 17)
+
+# --- 현금흐름 제외 키워드 ---
+CASH_FLOW_EXCLUDE_KEYWORDS = [
+    "항목",
+    "2.현금흐름현황",
+    "최근 1년 동안의 현금흐름을 분석합니다.",
+    "월수입 총계",
+    "월지출 총계",
+    "순수입 총계",
+    "총계",
+    "현금 자산",
+    "데이터를 내보낸 시점의 자산과 부채 상태를 분석합니다.",
+    "사용자가 보유한 대출상품 현황을 분석합니다.",
+    "사용자가 보유한 보험상품 현황을 분석합니다.",
+    "사용자가 보유한 투자상품 현황을 분석합니다.",
+    "대출종류",
+    "금융사",
+]
+ASSET_KEYWORDS = [
+    "자산", "부동산", "동산", "주식", "연금", "신탁", "보험", "저축",
+    "투자상품", "삼성생명", "삼성화재", "현대해상", "순자산", "총자산", "전자금융",
+]
+INCOME_KEYWORDS = ["수입", "급여", "상여", "용돈", "금융수입", "기타수입", "사업수입", "앱테크"]
+EXPENSE_KEYWORDS = [
+    "지출", "경조", "선물", "교육", "학습", "교통", "금융", "문화", "여가",
+    "뷰티", "미용", "생활", "식비", "여행", "숙박", "온라인쇼핑", "의료", "건강",
+    "자녀", "육아", "자동차", "주거", "통신", "카페", "간식", "패션", "쇼핑",
+]
+
+
+def _to_str(value: Any) -> str:
+    """int/float/str 값을 strip된 문자열로 변환합니다."""
+    if isinstance(value, (int, float)):
+        return str(value).strip()
+    if isinstance(value, str):
+        return value.strip()
+    return ""
+
+
+def _to_float(value: Any) -> Optional[float]:
+    """int/float/str 값을 float으로 변환합니다. 변환 불가 시 None 반환."""
+    try:
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, str) and value.strip():
+            cleaned = value.strip().replace(',', '')
+            if cleaned.replace('.', '').replace('-', '').isdigit():
+                return float(cleaned)
+    except (ValueError, TypeError):
+        pass
+    return None
+
 def parse_date_range_from_filename(filename: str) -> Optional[Tuple[date, date]]:
     """
     파일명에서 날짜 범위를 추출합니다.
@@ -132,6 +189,17 @@ def get_records_by_ids(db: Session, record_ids: List[int]) -> List[DataRecord]:
     if not record_ids:
         return []
     return db.query(DataRecord).filter(DataRecord.id.in_(record_ids)).all()
+
+def get_customers(db: Session, skip: int = 0, limit: int = 100) -> List[Customer]:
+    """고객 목록 조회"""
+    return db.query(Customer).offset(skip).limit(limit).all()
+
+def get_cash_flows(db: Session, sheet_id: Optional[int] = None, skip: int = 0, limit: int = 1000) -> List[CashFlow]:
+    """현금 흐름 현황 조회"""
+    query = db.query(CashFlow)
+    if sheet_id:
+        query = query.filter(CashFlow.sheet_id == sheet_id)
+    return query.offset(skip).limit(limit).all()
 
 def extract_and_save_customer_from_data_record(db: Session, sheet_id: int, upload_id: int) -> Optional[Customer]:
     """
@@ -352,13 +420,7 @@ def extract_and_save_cash_flows_from_data_record(db: Session, sheet_id: int, upl
     cash_flow_start_index = None
     for record in records:
         data = record.data
-        col1_raw = data.get("1", "")
-        if isinstance(col1_raw, (int, float)):
-            col1 = str(col1_raw).strip()
-        elif isinstance(col1_raw, str):
-            col1 = col1_raw.strip()
-        else:
-            col1 = ""
+        col1 = _to_str(data.get(COL_ITEM_NAME, ""))
         if "현금흐름현황" in col1 or "현금흐름" in col1:
             cash_flow_start_index = record.row_index
             break
@@ -374,24 +436,11 @@ def extract_and_save_cash_flows_from_data_record(db: Session, sheet_id: int, upl
         if record.row_index <= cash_flow_start_index:
             continue
         data = record.data
-        col1_raw = data.get("1", "")
-        if isinstance(col1_raw, (int, float)):
-            col1 = str(col1_raw).strip()
-        elif isinstance(col1_raw, str):
-            col1 = col1_raw.strip()
-        else:
-            col1 = ""
+        col1 = _to_str(data.get(COL_ITEM_NAME, ""))
         if col1 == "항목":
             header_row_index = record.row_index
-            # 월별 헤더 추출 (col 4부터)
-            for col_idx in range(4, 17):  # 일반적으로 4~16까지 월별 데이터
-                month_str_raw = data.get(str(col_idx), "")
-                if isinstance(month_str_raw, (int, float)):
-                    month_str = str(month_str_raw).strip()
-                elif isinstance(month_str_raw, str):
-                    month_str = month_str_raw.strip()
-                else:
-                    month_str = ""
+            for col_idx in MONTHLY_COL_RANGE:
+                month_str = _to_str(data.get(str(col_idx), ""))
                 if month_str and month_str not in ["총계", "월평균"]:
                     monthly_headers[str(col_idx)] = month_str
             break
@@ -406,35 +455,9 @@ def extract_and_save_cash_flows_from_data_record(db: Session, sheet_id: int, upl
             continue
         
         data = record.data
-        # item_name 추출 (문자열로 변환 후 strip)
-        item_name_raw = data.get("1", "")
-        if isinstance(item_name_raw, (int, float)):
-            item_name = str(item_name_raw).strip()
-        elif isinstance(item_name_raw, str):
-            item_name = item_name_raw.strip()
-        else:
-            item_name = ""
-        
-        # 항목명이 없거나 특정 키워드면 건너뛰기 (요약 행 및 헤더 제외)
-        exclude_keywords = [
-            "항목", 
-            "2.현금흐름현황", 
-            "최근 1년 동안의 현금흐름을 분석합니다.",
-            "월수입 총계",
-            "월지출 총계",
-            "순수입 총계",
-            "총계",
-            "현금 자산",
-            "데이터를 내보낸 시점의 자산과 부채 상태를 분석합니다.",
-            "사용자가 보유한 대출상품 현황을 분석합니다.",
-            "사용자가 보유한 보험상품 현황을 분석합니다.",
-            "사용자가 보유한 투자상품 현황을 분석합니다.",
-            "대출종류",
-            "금융사"
-        ]
-        
-        # 숫자만 있는 항목 제외
-        if not item_name or item_name in exclude_keywords:
+        item_name = _to_str(data.get(COL_ITEM_NAME, ""))
+
+        if not item_name or item_name in CASH_FLOW_EXCLUDE_KEYWORDS:
             continue
         
         # "총계", "현황", "분석" 키워드가 포함된 항목 제외
@@ -449,74 +472,25 @@ def extract_and_save_cash_flows_from_data_record(db: Session, sheet_id: int, upl
         if re.match(r'^\d+\.', item_name):
             continue
         
-        # 재무현황 섹션의 항목들 제외 (자산 관련 항목들)
-        asset_keywords = ["자산", "부동산", "동산", "주식", "연금", "신탁", "보험", "저축", "투자상품", 
-                         "삼성생명", "삼성화재", "현대해상", "순자산", "총자산", "전자금융"]
-        if any(keyword in item_name for keyword in asset_keywords):
+        if any(keyword in item_name for keyword in ASSET_KEYWORDS):
             continue
         
         # 총계와 월평균 추출
-        total_str = data.get("2", "")
-        monthly_avg_str = data.get("3", "")
-        
-        total = None
-        if total_str:
-            try:
-                if isinstance(total_str, (int, float)):
-                    total = float(total_str)
-                elif isinstance(total_str, str) and total_str.strip():
-                    # 숫자 문자열인지 확인 (소수점, 음수 포함)
-                    cleaned = total_str.strip().replace(',', '')
-                    if cleaned.replace('.', '').replace('-', '').isdigit():
-                        total = float(cleaned)
-            except (ValueError, TypeError):
-                total = None
-        
-        monthly_average = None
-        if monthly_avg_str:
-            try:
-                if isinstance(monthly_avg_str, (int, float)):
-                    monthly_average = float(monthly_avg_str)
-                elif isinstance(monthly_avg_str, str) and monthly_avg_str.strip():
-                    cleaned = monthly_avg_str.strip().replace(',', '')
-                    if cleaned.replace('.', '').replace('-', '').isdigit():
-                        monthly_average = float(cleaned)
-            except (ValueError, TypeError):
-                monthly_average = None
+        total = _to_float(data.get(COL_TOTAL, ""))
+        monthly_average = _to_float(data.get(COL_MONTHLY_AVG, ""))
         
         # 월별 데이터 추출
         monthly_data = {}
         for col_idx, month_str in monthly_headers.items():
-            amount_str = data.get(col_idx, "")
-            if amount_str:
-                try:
-                    if isinstance(amount_str, (int, float)):
-                        amount = float(amount_str)
-                    elif isinstance(amount_str, str) and amount_str.strip():
-                        cleaned = str(amount_str).strip().replace(',', '')
-                        if cleaned.replace('.', '').replace('-', '').isdigit():
-                            amount = float(cleaned)
-                        else:
-                            amount = None
-                    else:
-                        amount = None
-                    if amount is not None:
-                        monthly_data[month_str] = amount
-                except (ValueError, TypeError):
-                    pass
+            amount = _to_float(data.get(col_idx, ""))
+            if amount is not None:
+                monthly_data[month_str] = amount
         
         # 항목 타입 판단 (수입/지출)
-        # 수입 항목들
-        income_keywords = ["수입", "급여", "상여", "용돈", "금융수입", "기타수입", "사업수입", "앱테크"]
-        # 지출 항목들
-        expense_keywords = ["지출", "경조", "선물", "교육", "학습", "교통", "금융", "문화", "여가", 
-                          "뷰티", "미용", "생활", "식비", "여행", "숙박", "온라인쇼핑", "의료", "건강",
-                          "자녀", "육아", "자동차", "주거", "통신", "카페", "간식", "패션", "쇼핑"]
-        
         item_type = None
-        if any(keyword in item_name for keyword in income_keywords):
+        if any(keyword in item_name for keyword in INCOME_KEYWORDS):
             item_type = "수입"
-        elif any(keyword in item_name for keyword in expense_keywords):
+        elif any(keyword in item_name for keyword in EXPENSE_KEYWORDS):
             item_type = "지출"
         
         # 같은 sheet_id, item_name과 upload_id를 가진 cash_flow 확인
