@@ -4,6 +4,8 @@ import { getCashFlows, createCashFlow, updateCashFlow, deleteCashFlow } from '@/
 import type { CashFlow, CashFlowCreate } from '@/types';
 import CashFlowCharts from './CashFlowCharts';
 
+type Tab = '수입' | '지출' | '차트';
+
 const EMPTY_FORM: CashFlowCreate = {
   item_name: '',
   item_type: '지출',
@@ -14,14 +16,8 @@ const EMPTY_FORM: CashFlowCreate = {
 
 function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
   return (
-    <div
-      onClick={onClose}
-      style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--md-space-lg)' }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{ backgroundColor: 'var(--md-sys-light-surface-container)', borderRadius: 'var(--md-radius-lg)', border: '1px solid var(--md-sys-light-outline-variant)', boxShadow: 'var(--md-shadow-medium)', width: '100%', maxWidth: '520px', padding: 'var(--md-space-lg)', maxHeight: '90vh', overflowY: 'auto' }}
-      >
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--md-space-lg)' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ backgroundColor: 'var(--md-sys-light-surface-container)', borderRadius: 'var(--md-radius-lg)', border: '1px solid var(--md-sys-light-outline-variant)', boxShadow: 'var(--md-shadow-medium)', width: '100%', maxWidth: '520px', padding: 'var(--md-space-lg)', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--md-space-md)' }}>
           <h3 style={{ font: 'var(--md-title-small)', color: 'var(--md-sys-light-on-surface)', margin: 0 }}>{title}</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2em', color: 'var(--md-sys-light-on-surface-variant)' }}>✕</button>
@@ -32,7 +28,15 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
   );
 }
 
-function CashFlowForm({ initial, onSave, onCancel }: { initial?: CashFlow; onSave: (d: CashFlowCreate) => void; onCancel: () => void }) {
+function CashFlowForm({
+  initial,
+  onSave,
+  onCancel,
+}: {
+  initial?: CashFlow;
+  onSave: (d: CashFlowCreate) => void;
+  onCancel: () => void;
+}) {
   const [form, setForm] = useState<CashFlowCreate>(
     initial
       ? { item_name: initial.item_name, item_type: initial.item_type ?? '지출', total: initial.total ?? undefined, monthly_average: initial.monthly_average ?? undefined, monthly_data: initial.monthly_data }
@@ -77,7 +81,6 @@ function CashFlowForm({ initial, onSave, onCancel }: { initial?: CashFlow; onSav
           <input type="number" style={inputStyle} value={form.monthly_average ?? ''} onChange={(e) => setForm({ ...form, monthly_average: e.target.value ? Number(e.target.value) : undefined })} placeholder="0" />
         </div>
       </div>
-
       <div style={{ display: 'flex', gap: 'var(--md-space-sm)', justifyContent: 'flex-end', marginTop: 'var(--md-space-sm)' }}>
         <button onClick={onCancel} style={{ padding: 'var(--md-space-sm) var(--md-space-md)', borderRadius: 'var(--md-radius-sm)', border: '1px solid var(--md-sys-light-outline-variant)', background: 'transparent', cursor: 'pointer', font: 'var(--md-label-large)', color: 'var(--md-sys-light-on-surface-variant)' }}>취소</button>
         <button onClick={() => form.item_name.trim() && onSave(form)} disabled={!form.item_name.trim()} style={{ padding: 'var(--md-space-sm) var(--md-space-md)', borderRadius: 'var(--md-radius-sm)', border: 'none', background: 'var(--md-sys-light-primary)', color: 'var(--md-sys-light-on-primary)', cursor: 'pointer', font: 'var(--md-label-large)' }}>저장</button>
@@ -86,8 +89,60 @@ function CashFlowForm({ initial, onSave, onCancel }: { initial?: CashFlow; onSav
   );
 }
 
+function ItemTable({
+  items,
+  onEdit,
+  onDelete,
+}: {
+  items: CashFlow[];
+  onEdit: (item: CashFlow) => void;
+  onDelete: (id: number) => void;
+}) {
+  if (items.length === 0) {
+    return (
+      <p style={{ font: 'var(--md-body-medium)', color: 'var(--md-sys-light-on-surface-variant)', padding: 'var(--md-space-lg) 0' }}>
+        등록된 항목이 없습니다.
+      </p>
+    );
+  }
+
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '420px' }}>
+        <thead>
+          <tr style={{ backgroundColor: 'var(--md-sys-light-surface-container-high)' }}>
+            {['항목명', '총계', '월평균', ''].map((h) => (
+              <th key={h} style={{ padding: '8px 12px', textAlign: h === '총계' || h === '월평균' ? 'right' : 'left', font: 'var(--md-label-small)', color: 'var(--md-sys-light-on-surface-variant)', borderBottom: '1px solid var(--md-sys-light-outline-variant)' }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item) => (
+            <tr key={item.id} style={{ borderBottom: '1px solid var(--md-sys-light-outline-variant)' }}>
+              <td style={{ padding: '8px 12px', font: 'var(--md-body-medium)', color: 'var(--md-sys-light-on-surface)' }}>{item.item_name}</td>
+              <td style={{ padding: '8px 12px', textAlign: 'right', font: 'var(--md-body-medium)', color: 'var(--md-sys-light-on-surface)' }}>
+                {item.total != null ? item.total.toLocaleString() : '-'}
+              </td>
+              <td style={{ padding: '8px 12px', textAlign: 'right', font: 'var(--md-body-medium)', color: 'var(--md-sys-light-on-surface)' }}>
+                {item.monthly_average != null ? Math.round(item.monthly_average).toLocaleString() : '-'}
+              </td>
+              <td style={{ padding: '8px 12px' }}>
+                <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
+                  <button onClick={() => onEdit(item)} style={{ padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--md-sys-light-outline-variant)', background: 'transparent', cursor: 'pointer', font: 'var(--md-label-small)', color: 'var(--md-sys-light-on-surface-variant)' }}>편집</button>
+                  <button onClick={() => window.confirm('삭제하시겠습니까?') && onDelete(item.id)} style={{ padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(186,26,26,0.4)', background: 'transparent', cursor: 'pointer', font: 'var(--md-label-small)', color: 'rgba(186,26,26,0.9)' }}>삭제</button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function CashFlowStatus() {
   const qc = useQueryClient();
+  const [activeTab, setActiveTab] = useState<Tab>('수입');
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<CashFlow | null>(null);
 
@@ -122,83 +177,84 @@ export default function CashFlowStatus() {
   if (isLoading) return <div style={cardStyle}><p>로딩 중...</p></div>;
   if (error) return <div style={cardStyle}><p style={{ color: 'rgba(186,26,26,0.9)' }}>오류가 발생했습니다.</p></div>;
 
-  const incomeTotal = cashFlows.filter((c) => c.item_type === '수입').reduce((sum, c) => sum + (c.total ?? 0), 0);
-  const expenseTotal = cashFlows.filter((c) => c.item_type === '지출').reduce((sum, c) => sum + (c.total ?? 0), 0);
+  const incomeItems = cashFlows.filter((c) => c.item_type === '수입');
+  const expenseItems = cashFlows.filter((c) => c.item_type === '지출');
+  const incomeTotal = incomeItems.reduce((s, c) => s + (c.total ?? 0), 0);
+  const expenseTotal = expenseItems.reduce((s, c) => s + (c.total ?? 0), 0);
+
+  const tabs: { key: Tab; label: string; count?: number }[] = [
+    { key: '수입', label: '수입', count: incomeItems.length },
+    { key: '지출', label: '지출', count: expenseItems.length },
+    { key: '차트', label: '차트' },
+  ];
+
+  const tabStyle = (key: Tab): React.CSSProperties => ({
+    padding: 'var(--md-space-sm) var(--md-space-md)',
+    font: 'var(--md-label-large)',
+    border: 'none',
+    borderBottom: activeTab === key ? '2px solid var(--md-sys-light-primary)' : '2px solid transparent',
+    background: 'transparent',
+    color: activeTab === key ? 'var(--md-sys-light-primary)' : 'var(--md-sys-light-on-surface-variant)',
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+    whiteSpace: 'nowrap' as const,
+  });
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--md-space-lg)' }}>
-      <div style={cardStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--md-space-md)' }}>
-          <h2 style={{ font: 'var(--md-title-small)', color: 'var(--md-sys-light-on-surface)', margin: 0 }}>
-            현금 흐름 현황
-          </h2>
-          <button
-            onClick={() => setShowAdd(true)}
-            style={{ padding: 'var(--md-space-sm) var(--md-space-md)', borderRadius: 'var(--md-radius-sm)', border: 'none', background: 'var(--md-sys-light-primary)', color: 'var(--md-sys-light-on-primary)', cursor: 'pointer', font: 'var(--md-label-large)' }}
-          >
-            + 추가
-          </button>
-        </div>
-
-        {cashFlows.length === 0 ? (
-          <p style={{ font: 'var(--md-body-medium)', color: 'var(--md-sys-light-on-surface-variant)' }}>
-            등록된 현금 흐름 항목이 없습니다.
-          </p>
-        ) : (
-          <>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--md-space-md)', marginBottom: 'var(--md-space-md)' }}>
-              <div style={{ padding: 'var(--md-space-md)', borderRadius: 'var(--md-radius-md)', backgroundColor: 'rgba(0,196,159,0.1)', border: '1px solid rgba(0,196,159,0.3)' }}>
-                <p style={{ font: 'var(--md-label-small)', color: 'var(--md-sys-light-on-surface-variant)', margin: '0 0 4px' }}>총 수입</p>
-                <p style={{ font: 'var(--md-title-small)', color: 'var(--md-sys-light-on-surface)', margin: 0 }}>{incomeTotal.toLocaleString()}원</p>
-              </div>
-              <div style={{ padding: 'var(--md-space-md)', borderRadius: 'var(--md-radius-md)', backgroundColor: 'rgba(255,128,66,0.1)', border: '1px solid rgba(255,128,66,0.3)' }}>
-                <p style={{ font: 'var(--md-label-small)', color: 'var(--md-sys-light-on-surface-variant)', margin: '0 0 4px' }}>총 지출</p>
-                <p style={{ font: 'var(--md-title-small)', color: 'var(--md-sys-light-on-surface)', margin: 0 }}>{expenseTotal.toLocaleString()}원</p>
-              </div>
-            </div>
-
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '500px' }}>
-                <thead>
-                  <tr style={{ backgroundColor: 'var(--md-sys-light-surface-container-high)' }}>
-                    {['항목명', '유형', '총계', '월평균', ''].map((h) => (
-                      <th key={h} style={{ padding: '8px 12px', textAlign: h === '총계' || h === '월평균' ? 'right' : 'left', font: 'var(--md-label-small)', color: 'var(--md-sys-light-on-surface-variant)', borderBottom: '1px solid var(--md-sys-light-outline-variant)' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {cashFlows.map((item) => (
-                    <tr key={item.id} style={{ borderBottom: '1px solid var(--md-sys-light-outline-variant)' }}>
-                      <td style={{ padding: '8px 12px', font: 'var(--md-body-medium)', color: 'var(--md-sys-light-on-surface)' }}>{item.item_name}</td>
-                      <td style={{ padding: '8px 12px' }}>
-                        <span style={{ padding: '2px 8px', borderRadius: '4px', font: 'var(--md-label-small)', backgroundColor: item.item_type === '수입' ? 'rgba(0,196,159,0.15)' : 'rgba(255,128,66,0.15)', color: item.item_type === '수입' ? '#00a37a' : '#cc5200' }}>
-                          {item.item_type}
-                        </span>
-                      </td>
-                      <td style={{ padding: '8px 12px', textAlign: 'right', font: 'var(--md-body-medium)', color: 'var(--md-sys-light-on-surface)' }}>{item.total?.toLocaleString() ?? '-'}</td>
-                      <td style={{ padding: '8px 12px', textAlign: 'right', font: 'var(--md-body-medium)', color: 'var(--md-sys-light-on-surface)' }}>{item.monthly_average != null ? Math.round(item.monthly_average).toLocaleString() : '-'}</td>
-                      <td style={{ padding: '8px 12px' }}>
-                        <div style={{ display: 'flex', gap: '4px' }}>
-                          <button onClick={() => setEditing(item)} style={{ padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--md-sys-light-outline-variant)', background: 'transparent', cursor: 'pointer', font: 'var(--md-label-small)', color: 'var(--md-sys-light-on-surface-variant)' }}>편집</button>
-                          <button onClick={() => window.confirm('삭제하시겠습니까?') && deleteMutation.mutate(item.id)} style={{ padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(186,26,26,0.4)', background: 'transparent', cursor: 'pointer', font: 'var(--md-label-small)', color: 'rgba(186,26,26,0.9)' }}>삭제</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
+    <div style={cardStyle}>
+      {/* 헤더 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--md-space-md)' }}>
+        <h2 style={{ font: 'var(--md-title-small)', color: 'var(--md-sys-light-on-surface)', margin: 0 }}>
+          현금 흐름 현황
+        </h2>
+        <button
+          onClick={() => setShowAdd(true)}
+          style={{ padding: 'var(--md-space-sm) var(--md-space-md)', borderRadius: 'var(--md-radius-sm)', border: 'none', background: 'var(--md-sys-light-primary)', color: 'var(--md-sys-light-on-primary)', cursor: 'pointer', font: 'var(--md-label-large)' }}
+        >
+          + 추가
+        </button>
       </div>
 
-      {cashFlows.length > 0 && (
-        <div style={cardStyle}>
-          <h2 style={{ font: 'var(--md-title-small)', color: 'var(--md-sys-light-on-surface)', marginBottom: 'var(--md-space-md)' }}>차트</h2>
-          <CashFlowCharts cashFlows={cashFlows} />
+      {/* 요약 */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--md-space-md)', marginBottom: 'var(--md-space-md)' }}>
+        <div style={{ padding: 'var(--md-space-md)', borderRadius: 'var(--md-radius-md)', backgroundColor: 'rgba(0,196,159,0.08)', border: '1px solid rgba(0,196,159,0.25)' }}>
+          <p style={{ font: 'var(--md-label-small)', color: 'var(--md-sys-light-on-surface-variant)', margin: '0 0 4px' }}>총 수입</p>
+          <p style={{ font: 'var(--md-title-small)', color: 'var(--md-sys-light-on-surface)', margin: 0 }}>{incomeTotal.toLocaleString()}원</p>
         </div>
+        <div style={{ padding: 'var(--md-space-md)', borderRadius: 'var(--md-radius-md)', backgroundColor: 'rgba(255,128,66,0.08)', border: '1px solid rgba(255,128,66,0.25)' }}>
+          <p style={{ font: 'var(--md-label-small)', color: 'var(--md-sys-light-on-surface-variant)', margin: '0 0 4px' }}>총 지출</p>
+          <p style={{ font: 'var(--md-title-small)', color: 'var(--md-sys-light-on-surface)', margin: 0 }}>{expenseTotal.toLocaleString()}원</p>
+        </div>
+      </div>
+
+      {/* 탭 */}
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--md-sys-light-outline-variant)', marginBottom: 'var(--md-space-md)', gap: '4px' }}>
+        {tabs.map((t) => (
+          <button key={t.key} onClick={() => setActiveTab(t.key)} style={tabStyle(t.key)}>
+            {t.label}
+            {t.count !== undefined && (
+              <span style={{ marginLeft: '4px', padding: '1px 6px', borderRadius: '999px', font: 'var(--md-label-small)', backgroundColor: activeTab === t.key ? 'var(--md-sys-light-primary)' : 'var(--md-sys-light-surface-container-high)', color: activeTab === t.key ? 'var(--md-sys-light-on-primary)' : 'var(--md-sys-light-on-surface-variant)' }}>
+                {t.count}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* 탭 콘텐츠 */}
+      {activeTab === '수입' && (
+        <ItemTable items={incomeItems} onEdit={setEditing} onDelete={(id) => deleteMutation.mutate(id)} />
+      )}
+      {activeTab === '지출' && (
+        <ItemTable items={expenseItems} onEdit={setEditing} onDelete={(id) => deleteMutation.mutate(id)} />
+      )}
+      {activeTab === '차트' && (
+        cashFlows.length > 0
+          ? <CashFlowCharts cashFlows={cashFlows} />
+          : <p style={{ font: 'var(--md-body-medium)', color: 'var(--md-sys-light-on-surface-variant)', padding: 'var(--md-space-lg) 0' }}>데이터가 없습니다.</p>
       )}
 
+      {/* 모달 */}
       {showAdd && (
         <Modal title="현금흐름 항목 추가" onClose={() => setShowAdd(false)}>
           <CashFlowForm onSave={(d) => addMutation.mutate(d)} onCancel={() => setShowAdd(false)} />
