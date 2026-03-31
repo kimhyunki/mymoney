@@ -148,7 +148,7 @@ function GroupedList({ items, onEdit, onDelete }: { items: FixedExpense[]; onEdi
               <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '560px' }}>
                 <thead>
                   <tr style={{ backgroundColor: 'var(--md-sys-light-surface)' }}>
-                    {['항목명', '이체명', '은행', '예금주', '계좌번호', '월금액', ''].map((h) => (
+                    {['항목명', '성향', '이체명', '은행', '예금주', '계좌번호', '월금액', ''].map((h) => (
                       <th key={h} style={{ padding: '6px 10px', font: 'var(--md-label-small)', color: 'var(--md-sys-light-on-surface-variant)', textAlign: 'left', borderBottom: '1px solid var(--md-sys-light-outline-variant)', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
@@ -160,6 +160,7 @@ function GroupedList({ items, onEdit, onDelete }: { items: FixedExpense[]; onEdi
                     return (
                     <tr key={item.id} style={{ borderBottom: '1px solid var(--md-sys-light-outline-variant)' }}>
                       <td style={{ padding: '6px 10px', font: 'var(--md-body-small)', color: 'var(--md-sys-light-on-surface)' }}>{item.item_name}</td>
+                      <td style={{ padding: '6px 10px', font: 'var(--md-body-small)', color: 'var(--md-sys-light-on-surface-variant)', whiteSpace: 'nowrap' }}>{item.category}</td>
                       <td style={{ padding: '6px 10px', font: 'var(--md-body-small)', color: 'var(--md-sys-light-on-surface-variant)', whiteSpace: 'nowrap' }}>{transferDisplay}</td>
                       <td style={{ padding: '6px 10px', font: 'var(--md-body-small)', color: 'var(--md-sys-light-on-surface-variant)' }}>{item.bank_name ?? '-'}</td>
                       <td style={{ padding: '6px 10px', font: 'var(--md-body-small)', color: 'var(--md-sys-light-on-surface-variant)' }}>{item.account_holder ?? '-'}</td>
