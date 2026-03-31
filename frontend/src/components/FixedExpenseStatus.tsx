@@ -107,17 +107,24 @@ function ExpenseForm({ initial, onSubmit, onCancel, isLoading, submitLabel }: { 
 function GroupedList({ items, onEdit, onDelete }: { items: FixedExpense[]; onEdit: (i: FixedExpense) => void; onDelete: (i: FixedExpense) => void }) {
   const fmt = (v: number | null) => v == null ? '-' : v.toLocaleString('ko-KR') + '원';
 
-  const groups = items.reduce<Record<string, FixedExpense[]>>((acc, item) => {
+  const groupMap = items.reduce<Record<string, FixedExpense[]>>((acc, item) => {
     const k = item.category || '미분류';
     (acc[k] ||= []).push(item);
     return acc;
   }, {});
 
+  // 합계 내림차순 정렬
+  const groups = Object.entries(groupMap).sort(
+    ([, a], [, b]) =>
+      b.reduce((s, i) => s + (i.monthly_amount ?? 0), 0) -
+      a.reduce((s, i) => s + (i.monthly_amount ?? 0), 0)
+  );
+
   if (items.length === 0) return <p style={{ font: 'var(--md-body-medium)', color: 'var(--md-sys-light-on-surface-variant)', padding: 'var(--md-space-lg) 0' }}>등록된 항목이 없습니다.</p>;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {Object.entries(groups).map(([category, list]) => {
+      {groups.map(([category, list]) => {
         const total = list.reduce((s, i) => s + (i.monthly_amount ?? 0), 0);
         return (
           <div key={category} style={{ border: '1px solid var(--md-sys-light-outline-variant)', borderRadius: '8px', overflow: 'hidden' }}>

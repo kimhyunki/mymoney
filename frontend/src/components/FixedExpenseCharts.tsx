@@ -31,26 +31,6 @@ const sectionTitleStyle: React.CSSProperties = {
   borderBottom: '1px solid var(--md-sys-light-outline-variant)',
 };
 
-const tableStyle: React.CSSProperties = {
-  width: '100%',
-  borderCollapse: 'collapse',
-  font: 'var(--md-body-medium)',
-  color: 'var(--md-sys-light-on-surface)',
-};
-
-const thStyle: React.CSSProperties = {
-  textAlign: 'left',
-  padding: 'var(--md-space-sm) var(--md-space-md)',
-  font: 'var(--md-label-large)',
-  color: 'var(--md-sys-light-on-surface-variant)',
-  borderBottom: '1px solid var(--md-sys-light-outline-variant)',
-  whiteSpace: 'nowrap',
-};
-
-const tdStyle: React.CSSProperties = {
-  padding: 'var(--md-space-sm) var(--md-space-md)',
-  borderBottom: '1px solid var(--md-sys-light-outline-variant)',
-};
 
 function FixedExpenseCharts({ fixedExpenses }: FixedExpenseChartsProps) {
   // 성향(category)별 합계
@@ -161,49 +141,6 @@ function FixedExpenseCharts({ fixedExpenses }: FixedExpenseChartsProps) {
         </ResponsiveContainer>
       </div>
 
-      {/* 항목 목록 테이블 */}
-      <div style={sectionStyle}>
-        <h3 style={sectionTitleStyle}>고정비 항목 목록</h3>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={tableStyle}>
-            <thead>
-              <tr>
-                {['항목', '성향', '은행', '이체명', '예금주', '월 금액'].map(h => (
-                  <th key={h} style={thStyle}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {fixedExpenses.map(fe => (
-                <tr key={fe.id} style={{ transition: 'background 0.15s' }}
-                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--md-sys-light-surface-container-high)')}
-                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-                >
-                  <td style={{ ...tdStyle, fontWeight: 500 }}>{fe.item_name}</td>
-                  <td style={tdStyle}>
-                    <span style={{
-                      backgroundColor: COLORS[categoryData.findIndex(c => c.name === fe.category) % COLORS.length] + '22',
-                      color: COLORS[categoryData.findIndex(c => c.name === fe.category) % COLORS.length],
-                      borderRadius: 'var(--md-radius-full)',
-                      padding: '2px 10px',
-                      font: 'var(--md-label-small)',
-                      fontWeight: 600,
-                    }}>
-                      {fe.category}
-                    </span>
-                  </td>
-                  <td style={tdStyle}>{fe.bank_name ?? '-'}</td>
-                  <td style={tdStyle}>{fe.transfer_name ?? '-'}</td>
-                  <td style={tdStyle}>{fe.account_holder ?? '-'}</td>
-                  <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>
-                    {fe.monthly_amount != null ? formatAmount(fe.monthly_amount) : '-'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
     </div>
   );
 }
