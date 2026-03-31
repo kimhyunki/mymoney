@@ -109,6 +109,12 @@ function groupKey(category: string): string {
   return idx > 0 ? category.slice(0, idx).trim() : category.trim() || '미분류';
 }
 
+// 괄호 안 내용 추출: "교육비(눈높이)" → "눈높이", "저축" → ""
+function subLabel(category: string): string {
+  const m = category.match(/\(([^)]+)\)/);
+  return m ? m[1] : '';
+}
+
 // ── 성향별 그룹 목록 ─────────────────────────────────────────
 function GroupedList({ items, onEdit, onDelete }: { items: FixedExpense[]; onEdit: (i: FixedExpense) => void; onDelete: (i: FixedExpense) => void }) {
   const fmt = (v: number | null) => v == null ? '-' : v.toLocaleString('ko-KR') + '원';
@@ -142,19 +148,19 @@ function GroupedList({ items, onEdit, onDelete }: { items: FixedExpense[]; onEdi
               <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '560px' }}>
                 <thead>
                   <tr style={{ backgroundColor: 'var(--md-sys-light-surface)' }}>
-                    {['항목명', '성향', '이체명', '은행', '예금주', '계좌번호', '월금액', ''].map((h) => (
+                    {['항목명', '이체명', '은행', '예금주', '계좌번호', '월금액', ''].map((h) => (
                       <th key={h} style={{ padding: '6px 10px', font: 'var(--md-label-small)', color: 'var(--md-sys-light-on-surface-variant)', textAlign: 'left', borderBottom: '1px solid var(--md-sys-light-outline-variant)', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {list.map((item) => (
+                  {list.map((item) => {
+                    const sub = subLabel(item.category);
+                    const transferDisplay = [sub, item.transfer_name].filter(Boolean).join(' · ') || '-';
+                    return (
                     <tr key={item.id} style={{ borderBottom: '1px solid var(--md-sys-light-outline-variant)' }}>
                       <td style={{ padding: '6px 10px', font: 'var(--md-body-small)', color: 'var(--md-sys-light-on-surface)' }}>{item.item_name}</td>
-                      <td style={{ padding: '6px 10px', font: 'var(--md-body-small)', color: 'var(--md-sys-light-on-surface-variant)', whiteSpace: 'nowrap' }}>
-                        <span style={{ padding: '1px 6px', borderRadius: '4px', backgroundColor: 'var(--md-sys-light-surface-container-high)', fontSize: '0.75em' }}>{item.category}</span>
-                      </td>
-                      <td style={{ padding: '6px 10px', font: 'var(--md-body-small)', color: 'var(--md-sys-light-on-surface-variant)' }}>{item.transfer_name ?? '-'}</td>
+                      <td style={{ padding: '6px 10px', font: 'var(--md-body-small)', color: 'var(--md-sys-light-on-surface-variant)', whiteSpace: 'nowrap' }}>{transferDisplay}</td>
                       <td style={{ padding: '6px 10px', font: 'var(--md-body-small)', color: 'var(--md-sys-light-on-surface-variant)' }}>{item.bank_name ?? '-'}</td>
                       <td style={{ padding: '6px 10px', font: 'var(--md-body-small)', color: 'var(--md-sys-light-on-surface-variant)' }}>{item.account_holder ?? '-'}</td>
                       <td style={{ padding: '6px 10px', font: 'var(--md-body-small)', color: 'var(--md-sys-light-on-surface-variant)' }}>{item.account_number ?? '-'}</td>
@@ -166,7 +172,8 @@ function GroupedList({ items, onEdit, onDelete }: { items: FixedExpense[]; onEdi
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
