@@ -11,6 +11,11 @@ interface FixedExpenseChartsProps {
 
 const COLORS = ['#6750A4', '#B5838D', '#3D9A8B', '#E07A5F', '#F2CC8F', '#81B29A', '#F4A261', '#264653'];
 
+function groupKey(category: string): string {
+  const idx = category.indexOf('(');
+  return idx > 0 ? category.slice(0, idx).trim() : category.trim() || '미분류';
+}
+
 function formatAmount(value: number): string {
   return value.toLocaleString('ko-KR') + '원';
 }
@@ -33,25 +38,25 @@ const sectionTitleStyle: React.CSSProperties = {
 
 
 function FixedExpenseCharts({ fixedExpenses }: FixedExpenseChartsProps) {
-  // 성향(category)별 합계
+  // 대분류별 합계 (괄호 앞 접두어 기준)
   const categoryData = useMemo(() => {
     const map: Record<string, number> = {};
     for (const fe of fixedExpenses) {
-      const avg = fe.monthly_amount ?? 0;
-      map[fe.category] = (map[fe.category] ?? 0) + avg;
+      const key = groupKey(fe.category);
+      map[key] = (map[key] ?? 0) + (fe.monthly_amount ?? 0);
     }
     return Object.entries(map)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
   }, [fixedExpenses]);
 
-  // 항목별 월 평균 금액 (상위 15개)
+  // 항목별 월 금액 (상위 15개)
   const itemData = useMemo(() => {
     return [...fixedExpenses]
       .filter(fe => fe.monthly_amount != null && fe.monthly_amount > 0)
       .sort((a, b) => (b.monthly_amount ?? 0) - (a.monthly_amount ?? 0))
       .slice(0, 15)
-      .map(fe => ({ name: fe.item_name, amount: fe.monthly_amount ?? 0, category: fe.category }));
+      .map(fe => ({ name: fe.item_name, amount: fe.monthly_amount ?? 0, group: groupKey(fe.category) }));
   }, [fixedExpenses]);
 
   const totalMonthly = useMemo(
@@ -134,7 +139,7 @@ function FixedExpenseCharts({ fixedExpenses }: FixedExpenseChartsProps) {
             <Tooltip content={<CustomTooltip />} />
             <Bar dataKey="amount" fill="#6750A4" radius={[0, 4, 4, 0]}>
               {itemData.map((entry, idx) => (
-                <Cell key={idx} fill={COLORS[categoryData.findIndex(c => c.name === entry.category) % COLORS.length] ?? '#6750A4'} />
+                <Cell key={idx} fill={COLORS[categoryData.findIndex(c => c.name === entry.group) % COLORS.length] ?? '#6750A4'} />
               ))}
             </Bar>
           </BarChart>
