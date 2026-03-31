@@ -12,15 +12,11 @@ interface FixedExpenseChartsProps {
 const COLORS = ['#6750A4', '#B5838D', '#3D9A8B', '#E07A5F', '#F2CC8F', '#81B29A', '#F4A261', '#264653'];
 
 function formatAmount(value: number): string {
-  if (Math.abs(value) >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M원`;
-  if (Math.abs(value) >= 1_000) return `${(value / 1_000).toFixed(0)}K원`;
-  return `${value.toFixed(0)}원`;
+  return value.toLocaleString('ko-KR') + '원';
 }
 
 function formatYAxis(value: number): string {
-  if (Math.abs(value) >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(value) >= 1_000) return `${(value / 1_000).toFixed(0)}K`;
-  return String(value);
+  return value.toLocaleString('ko-KR');
 }
 
 const sectionStyle: React.CSSProperties = {
