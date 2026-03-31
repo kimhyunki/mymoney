@@ -103,12 +103,18 @@ function ExpenseForm({ initial, onSubmit, onCancel, isLoading, submitLabel }: { 
   );
 }
 
+// 카테고리에서 괄호 앞 접두어 추출: "교육비(눈높이)" → "교육비"
+function groupKey(category: string): string {
+  const idx = category.indexOf('(');
+  return idx > 0 ? category.slice(0, idx).trim() : category.trim() || '미분류';
+}
+
 // ── 성향별 그룹 목록 ─────────────────────────────────────────
 function GroupedList({ items, onEdit, onDelete }: { items: FixedExpense[]; onEdit: (i: FixedExpense) => void; onDelete: (i: FixedExpense) => void }) {
   const fmt = (v: number | null) => v == null ? '-' : v.toLocaleString('ko-KR') + '원';
 
   const groupMap = items.reduce<Record<string, FixedExpense[]>>((acc, item) => {
-    const k = item.category || '미분류';
+    const k = groupKey(item.category || '');
     (acc[k] ||= []).push(item);
     return acc;
   }, {});
@@ -124,19 +130,19 @@ function GroupedList({ items, onEdit, onDelete }: { items: FixedExpense[]; onEdi
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {groups.map(([category, list]) => {
+      {groups.map(([group, list]) => {
         const total = list.reduce((s, i) => s + (i.monthly_amount ?? 0), 0);
         return (
-          <div key={category} style={{ border: '1px solid var(--md-sys-light-outline-variant)', borderRadius: '8px', overflow: 'hidden' }}>
+          <div key={group} style={{ border: '1px solid var(--md-sys-light-outline-variant)', borderRadius: '8px', overflow: 'hidden' }}>
             <div style={{ padding: '8px 14px', backgroundColor: 'var(--md-sys-light-surface-variant)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ font: 'var(--md-label-medium)', color: 'var(--md-sys-light-on-surface-variant)' }}>{category}</span>
+              <span style={{ font: 'var(--md-label-medium)', color: 'var(--md-sys-light-on-surface-variant)' }}>{group}</span>
               <span style={{ font: 'var(--md-label-small)', color: 'var(--md-sys-light-on-surface-variant)' }}>합계 {fmt(total)} / {list.length}건</span>
             </div>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '560px' }}>
                 <thead>
                   <tr style={{ backgroundColor: 'var(--md-sys-light-surface)' }}>
-                    {['항목명', '이체명', '은행', '예금주', '계좌번호', '월금액', ''].map((h) => (
+                    {['항목명', '성향', '이체명', '은행', '예금주', '계좌번호', '월금액', ''].map((h) => (
                       <th key={h} style={{ padding: '6px 10px', font: 'var(--md-label-small)', color: 'var(--md-sys-light-on-surface-variant)', textAlign: 'left', borderBottom: '1px solid var(--md-sys-light-outline-variant)', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
@@ -145,6 +151,9 @@ function GroupedList({ items, onEdit, onDelete }: { items: FixedExpense[]; onEdi
                   {list.map((item) => (
                     <tr key={item.id} style={{ borderBottom: '1px solid var(--md-sys-light-outline-variant)' }}>
                       <td style={{ padding: '6px 10px', font: 'var(--md-body-small)', color: 'var(--md-sys-light-on-surface)' }}>{item.item_name}</td>
+                      <td style={{ padding: '6px 10px', font: 'var(--md-body-small)', color: 'var(--md-sys-light-on-surface-variant)', whiteSpace: 'nowrap' }}>
+                        <span style={{ padding: '1px 6px', borderRadius: '4px', backgroundColor: 'var(--md-sys-light-surface-container-high)', fontSize: '0.75em' }}>{item.category}</span>
+                      </td>
                       <td style={{ padding: '6px 10px', font: 'var(--md-body-small)', color: 'var(--md-sys-light-on-surface-variant)' }}>{item.transfer_name ?? '-'}</td>
                       <td style={{ padding: '6px 10px', font: 'var(--md-body-small)', color: 'var(--md-sys-light-on-surface-variant)' }}>{item.bank_name ?? '-'}</td>
                       <td style={{ padding: '6px 10px', font: 'var(--md-body-small)', color: 'var(--md-sys-light-on-surface-variant)' }}>{item.account_holder ?? '-'}</td>
