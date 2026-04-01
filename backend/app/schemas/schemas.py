@@ -2,44 +2,8 @@ from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
-class UploadHistoryResponse(BaseModel):
-    id: int
-    filename: str
-    uploaded_at: datetime
-    sheet_count: int
-    
-    class Config:
-        from_attributes = True
 
-class SheetDataResponse(BaseModel):
-    id: int
-    upload_id: int
-    sheet_name: str
-    row_count: int
-    column_count: int
-    
-    class Config:
-        from_attributes = True
-
-class DataRecordResponse(BaseModel):
-    id: int
-    sheet_id: int
-    row_index: int
-    data: Dict[str, Any]
-    
-    class Config:
-        from_attributes = True
-
-class UploadResponse(BaseModel):
-    upload_id: int
-    filename: str
-    sheet_count: int
-    message: str
-
-class SheetWithDataResponse(BaseModel):
-    sheet: SheetDataResponse
-    records: List[DataRecordResponse]
-
+# ── Customer ────────────────────────────────────────────────
 class CustomerBase(BaseModel):
     name: str
     gender: Optional[str] = None
@@ -48,18 +12,25 @@ class CustomerBase(BaseModel):
     email: Optional[str] = None
 
 class CustomerCreate(CustomerBase):
-    data_record_id: Optional[int] = None
+    pass
+
+class CustomerUpdate(BaseModel):
+    name: Optional[str] = None
+    gender: Optional[str] = None
+    age: Optional[int] = None
+    credit_score: Optional[int] = None
+    email: Optional[str] = None
 
 class CustomerResponse(CustomerBase):
     id: int
-    upload_id: Optional[int] = None
-    data_record_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
 
+
+# ── CashFlow ─────────────────────────────────────────────────
 class CashFlowBase(BaseModel):
     item_name: str
     item_type: Optional[str] = None
@@ -68,20 +39,25 @@ class CashFlowBase(BaseModel):
     monthly_data: Optional[Dict[str, Any]] = None
 
 class CashFlowCreate(CashFlowBase):
-    sheet_id: int
-    data_record_id: Optional[int] = None
+    pass
+
+class CashFlowUpdate(BaseModel):
+    item_name: Optional[str] = None
+    item_type: Optional[str] = None
+    total: Optional[float] = None
+    monthly_average: Optional[float] = None
+    monthly_data: Optional[Dict[str, Any]] = None
 
 class CashFlowResponse(CashFlowBase):
     id: int
-    sheet_id: int
-    upload_id: Optional[int] = None
-    data_record_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
 
+
+# ── FixedExpense ──────────────────────────────────────────────
 class FixedExpenseBase(BaseModel):
     account_number: Optional[str] = None
     bank_name: Optional[str] = None
@@ -93,20 +69,28 @@ class FixedExpenseBase(BaseModel):
     monthly_data: Optional[Dict[str, Any]] = None
 
 class FixedExpenseCreate(FixedExpenseBase):
-    sheet_id: int
-    data_record_id: Optional[int] = None
+    pass
+
+class FixedExpenseUpdate(BaseModel):
+    account_number: Optional[str] = None
+    bank_name: Optional[str] = None
+    account_holder: Optional[str] = None
+    transfer_name: Optional[str] = None
+    category: Optional[str] = None
+    item_name: Optional[str] = None
+    monthly_amount: Optional[float] = None
+    monthly_data: Optional[Dict[str, Any]] = None
 
 class FixedExpenseResponse(FixedExpenseBase):
     id: int
-    sheet_id: int
-    upload_id: Optional[int] = None
-    data_record_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
 
+
+# ── MonthlySummary ────────────────────────────────────────────
 class MonthlySummaryBase(BaseModel):
     year: int
     month: int
@@ -118,20 +102,28 @@ class MonthlySummaryBase(BaseModel):
     investment_value: Optional[float] = None
 
 class MonthlySummaryCreate(MonthlySummaryBase):
-    sheet_id: int
-    data_record_id: Optional[int] = None
+    pass
+
+class MonthlySummaryUpdate(BaseModel):
+    year: Optional[int] = None
+    month: Optional[int] = None
+    income: Optional[float] = None
+    expense: Optional[float] = None
+    net_income: Optional[float] = None
+    cumulative_net_income: Optional[float] = None
+    investment_principal: Optional[float] = None
+    investment_value: Optional[float] = None
 
 class MonthlySummaryResponse(MonthlySummaryBase):
     id: int
-    sheet_id: int
-    upload_id: Optional[int] = None
-    data_record_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
 
+
+# ── FinancialGoal ─────────────────────────────────────────────
 class FinancialGoalBase(BaseModel):
     goal_name: str
     target_amount: Optional[float] = None
@@ -147,18 +139,32 @@ class FinancialGoalBase(BaseModel):
     actual_data: Optional[List[Dict[str, Any]]] = None
 
 class FinancialGoalCreate(FinancialGoalBase):
-    sheet_id: int
+    pass
+
+class FinancialGoalUpdate(BaseModel):
+    goal_name: Optional[str] = None
+    target_amount: Optional[float] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    interest_rate: Optional[float] = None
+    total_weeks: Optional[int] = None
+    elapsed_weeks: Optional[int] = None
+    remaining_weeks: Optional[int] = None
+    progress_rate: Optional[float] = None
+    weekly_allocation: Optional[float] = None
+    planned_data: Optional[List[Dict[str, Any]]] = None
+    actual_data: Optional[List[Dict[str, Any]]] = None
 
 class FinancialGoalResponse(FinancialGoalBase):
     id: int
-    sheet_id: int
-    upload_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
 
+
+# ── RealEstateAnalysis ────────────────────────────────────────
 class RealEstateAnalysisBase(BaseModel):
     property_name: Optional[str] = None
     total_acquisition_cost: Optional[float] = None
@@ -172,17 +178,107 @@ class RealEstateAnalysisBase(BaseModel):
     analysis_data: Optional[Dict[str, Any]] = None
 
 class RealEstateAnalysisCreate(RealEstateAnalysisBase):
-    sheet_id: int
-    data_record_id: Optional[int] = None
+    pass
+
+class RealEstateAnalysisUpdate(RealEstateAnalysisBase):
+    pass
 
 class RealEstateAnalysisResponse(RealEstateAnalysisBase):
     id: int
-    sheet_id: int
-    upload_id: Optional[int] = None
-    data_record_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
 
+
+# ── LedgerTransaction ─────────────────────────────────────────
+class LedgerTransactionBase(BaseModel):
+    transaction_date: Optional[datetime] = None
+    transaction_time: Optional[str] = None
+    transaction_type: Optional[str] = None
+    category: Optional[str] = None
+    subcategory: Optional[str] = None
+    description: Optional[str] = None
+    amount: Optional[float] = None
+    currency: Optional[str] = None
+    payment_method: Optional[str] = None
+    memo: Optional[str] = None
+
+class LedgerTransactionCreate(LedgerTransactionBase):
+    pass
+
+class LedgerTransactionUpdate(BaseModel):
+    transaction_date: Optional[datetime] = None
+    transaction_time: Optional[str] = None
+    transaction_type: Optional[str] = None
+    category: Optional[str] = None
+    subcategory: Optional[str] = None
+    description: Optional[str] = None
+    amount: Optional[float] = None
+    currency: Optional[str] = None
+    payment_method: Optional[str] = None
+    memo: Optional[str] = None
+
+class LedgerTransactionResponse(LedgerTransactionBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ── InvestmentStatus ──────────────────────────────────────────
+class InvestmentStatusBase(BaseModel):
+    investment_type: Optional[str] = None
+    company: Optional[str] = None
+    product_name: str
+    principal: Optional[float] = None
+    current_value: Optional[float] = None
+    return_rate: Optional[float] = None
+
+class InvestmentStatusCreate(InvestmentStatusBase):
+    pass
+
+class InvestmentStatusUpdate(BaseModel):
+    investment_type: Optional[str] = None
+    company: Optional[str] = None
+    product_name: Optional[str] = None
+    principal: Optional[float] = None
+    current_value: Optional[float] = None
+    return_rate: Optional[float] = None
+
+class InvestmentStatusResponse(InvestmentStatusBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ── UploadHistory ─────────────────────────────────────────────
+class UploadHistoryResponse(BaseModel):
+    id: int
+    filename: str
+    file_size: Optional[int] = None
+    result_json: Optional[Dict[str, Any]] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ── FinancialSnapshot ─────────────────────────────────────────
+class FinancialSnapshotResponse(BaseModel):
+    id: int
+    total_assets: Optional[float] = None
+    total_liabilities: Optional[float] = None
+    net_assets: Optional[float] = None
+    snapshot_data: Optional[Dict[str, Any]] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

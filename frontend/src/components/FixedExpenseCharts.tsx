@@ -11,16 +11,17 @@ interface FixedExpenseChartsProps {
 
 const COLORS = ['#6750A4', '#B5838D', '#3D9A8B', '#E07A5F', '#F2CC8F', '#81B29A', '#F4A261', '#264653'];
 
+function groupKey(category: string): string {
+  const idx = category.indexOf('(');
+  return idx > 0 ? category.slice(0, idx).trim() : category.trim() || '미분류';
+}
+
 function formatAmount(value: number): string {
-  if (Math.abs(value) >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M원`;
-  if (Math.abs(value) >= 1_000) return `${(value / 1_000).toFixed(0)}K원`;
-  return `${value.toFixed(0)}원`;
+  return value.toLocaleString('ko-KR') + '원';
 }
 
 function formatYAxis(value: number): string {
-  if (Math.abs(value) >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(value) >= 1_000) return `${(value / 1_000).toFixed(0)}K`;
-  return String(value);
+  return value.toLocaleString('ko-KR');
 }
 
 const sectionStyle: React.CSSProperties = {
@@ -35,47 +36,27 @@ const sectionTitleStyle: React.CSSProperties = {
   borderBottom: '1px solid var(--md-sys-light-outline-variant)',
 };
 
-const tableStyle: React.CSSProperties = {
-  width: '100%',
-  borderCollapse: 'collapse',
-  font: 'var(--md-body-medium)',
-  color: 'var(--md-sys-light-on-surface)',
-};
-
-const thStyle: React.CSSProperties = {
-  textAlign: 'left',
-  padding: 'var(--md-space-sm) var(--md-space-md)',
-  font: 'var(--md-label-large)',
-  color: 'var(--md-sys-light-on-surface-variant)',
-  borderBottom: '1px solid var(--md-sys-light-outline-variant)',
-  whiteSpace: 'nowrap',
-};
-
-const tdStyle: React.CSSProperties = {
-  padding: 'var(--md-space-sm) var(--md-space-md)',
-  borderBottom: '1px solid var(--md-sys-light-outline-variant)',
-};
 
 function FixedExpenseCharts({ fixedExpenses }: FixedExpenseChartsProps) {
-  // 성향(category)별 합계
+  // 대분류별 합계 (괄호 앞 접두어 기준)
   const categoryData = useMemo(() => {
     const map: Record<string, number> = {};
     for (const fe of fixedExpenses) {
-      const avg = fe.monthly_amount ?? 0;
-      map[fe.category] = (map[fe.category] ?? 0) + avg;
+      const key = groupKey(fe.category);
+      map[key] = (map[key] ?? 0) + (fe.monthly_amount ?? 0);
     }
     return Object.entries(map)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
   }, [fixedExpenses]);
 
-  // 항목별 월 평균 금액 (상위 15개)
+  // 항목별 월 금액 (상위 15개)
   const itemData = useMemo(() => {
     return [...fixedExpenses]
       .filter(fe => fe.monthly_amount != null && fe.monthly_amount > 0)
       .sort((a, b) => (b.monthly_amount ?? 0) - (a.monthly_amount ?? 0))
       .slice(0, 15)
-      .map(fe => ({ name: fe.item_name, amount: fe.monthly_amount ?? 0, category: fe.category }));
+      .map(fe => ({ name: fe.item_name, amount: fe.monthly_amount ?? 0, group: groupKey(fe.category) }));
   }, [fixedExpenses]);
 
   const totalMonthly = useMemo(
@@ -158,56 +139,13 @@ function FixedExpenseCharts({ fixedExpenses }: FixedExpenseChartsProps) {
             <Tooltip content={<CustomTooltip />} />
             <Bar dataKey="amount" fill="#6750A4" radius={[0, 4, 4, 0]}>
               {itemData.map((entry, idx) => (
-                <Cell key={idx} fill={COLORS[categoryData.findIndex(c => c.name === entry.category) % COLORS.length] ?? '#6750A4'} />
+                <Cell key={idx} fill={COLORS[categoryData.findIndex(c => c.name === entry.group) % COLORS.length] ?? '#6750A4'} />
               ))}
             </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>
 
-      {/* 항목 목록 테이블 */}
-      <div style={sectionStyle}>
-        <h3 style={sectionTitleStyle}>고정비 항목 목록</h3>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={tableStyle}>
-            <thead>
-              <tr>
-                {['항목', '성향', '은행', '이체명', '예금주', '월 금액'].map(h => (
-                  <th key={h} style={thStyle}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {fixedExpenses.map(fe => (
-                <tr key={fe.id} style={{ transition: 'background 0.15s' }}
-                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--md-sys-light-surface-container-high)')}
-                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-                >
-                  <td style={{ ...tdStyle, fontWeight: 500 }}>{fe.item_name}</td>
-                  <td style={tdStyle}>
-                    <span style={{
-                      backgroundColor: COLORS[categoryData.findIndex(c => c.name === fe.category) % COLORS.length] + '22',
-                      color: COLORS[categoryData.findIndex(c => c.name === fe.category) % COLORS.length],
-                      borderRadius: 'var(--md-radius-full)',
-                      padding: '2px 10px',
-                      font: 'var(--md-label-small)',
-                      fontWeight: 600,
-                    }}>
-                      {fe.category}
-                    </span>
-                  </td>
-                  <td style={tdStyle}>{fe.bank_name ?? '-'}</td>
-                  <td style={tdStyle}>{fe.transfer_name ?? '-'}</td>
-                  <td style={tdStyle}>{fe.account_holder ?? '-'}</td>
-                  <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>
-                    {fe.monthly_amount != null ? formatAmount(fe.monthly_amount) : '-'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
     </div>
   );
 }
