@@ -1,3 +1,5 @@
+export const formatCurrency = (v: number): string => Math.abs(v).toLocaleString() + '원';
+
 export function formatNumber(value: unknown): string {
   if (value === null || value === undefined) {
     return '';

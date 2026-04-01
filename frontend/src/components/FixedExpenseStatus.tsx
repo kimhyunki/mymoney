@@ -2,10 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getFixedExpenses, createFixedExpense, updateFixedExpense, deleteFixedExpense } from '@/lib/api';
 import type { FixedExpense, FixedExpenseCreate, FixedExpenseUpdate } from '@/types';
-import FixedExpenseCharts from './FixedExpenseCharts';
+import FixedExpenseDetailView from './FixedExpenseDetailView';
 import YearTabs from './YearTabs';
-
-type Tab = '목록' | '차트';
 
 // ── 스타일 상수 ───────────────────────────────────────────────
 const cardStyle: React.CSSProperties = {
@@ -25,12 +23,6 @@ const btnPrimary: React.CSSProperties = {
 const btnSecondary: React.CSSProperties = {
   padding: '4px 10px', borderRadius: '6px', border: '1px solid var(--md-sys-light-outline-variant)',
   backgroundColor: 'var(--md-sys-light-surface)', color: 'var(--md-sys-light-on-surface)',
-  font: 'var(--md-label-small)', cursor: 'pointer',
-};
-
-const btnDanger: React.CSSProperties = {
-  padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(186,26,26,0.4)',
-  backgroundColor: 'transparent', color: 'rgba(186,26,26,0.9)',
   font: 'var(--md-label-small)', cursor: 'pointer',
 };
 
@@ -104,96 +96,29 @@ function ExpenseForm({ initial, onSubmit, onCancel, isLoading, submitLabel }: { 
   );
 }
 
-// 카테고리에서 괄호 앞 접두어 추출: "교육비(눈높이)" → "교육비"
-function groupKey(category: string): string {
-  const idx = category.indexOf('(');
-  return idx > 0 ? category.slice(0, idx).trim() : category.trim() || '미분류';
-}
-
-// ── 성향별 그룹 목록 ─────────────────────────────────────────
-function GroupedList({ items, onEdit, onDelete }: { items: FixedExpense[]; onEdit: (i: FixedExpense) => void; onDelete: (i: FixedExpense) => void }) {
-  const fmt = (v: number | null) => v == null ? '-' : v.toLocaleString('ko-KR') + '원';
-
-  const groupMap = items.reduce<Record<string, FixedExpense[]>>((acc, item) => {
-    const k = groupKey(item.category || '');
-    (acc[k] ||= []).push(item);
-    return acc;
-  }, {});
-
-  // 합계 내림차순 정렬
-  const groups = Object.entries(groupMap).sort(
-    ([, a], [, b]) =>
-      b.reduce((s, i) => s + (i.monthly_amount ?? 0), 0) -
-      a.reduce((s, i) => s + (i.monthly_amount ?? 0), 0)
-  );
-
-  if (items.length === 0) return <p style={{ font: 'var(--md-body-medium)', color: 'var(--md-sys-light-on-surface-variant)', padding: 'var(--md-space-lg) 0' }}>등록된 항목이 없습니다.</p>;
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {groups.map(([group, list]) => {
-        const total = list.reduce((s, i) => s + (i.monthly_amount ?? 0), 0);
-        return (
-          <div key={group} style={{ border: '1px solid var(--md-sys-light-outline-variant)', borderRadius: '8px', overflow: 'hidden' }}>
-            <div style={{ padding: '8px 14px', backgroundColor: 'var(--md-sys-light-surface-variant)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ font: 'var(--md-label-medium)', color: 'var(--md-sys-light-on-surface-variant)' }}>{group}</span>
-              <span style={{ font: 'var(--md-label-small)', color: 'var(--md-sys-light-on-surface-variant)' }}>합계 {fmt(total)} / {list.length}건</span>
-            </div>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '560px' }}>
-                <thead>
-                  <tr style={{ backgroundColor: 'var(--md-sys-light-surface)' }}>
-                    {['항목명', '성향', '은행', '예금주', '계좌번호', '월금액', ''].map((h) => (
-                      <th key={h} style={{ padding: '6px 10px', font: 'var(--md-label-small)', color: 'var(--md-sys-light-on-surface-variant)', textAlign: 'left', borderBottom: '1px solid var(--md-sys-light-outline-variant)', whiteSpace: 'nowrap' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {list.map((item) => (
-                    <tr key={item.id} style={{ borderBottom: '1px solid var(--md-sys-light-outline-variant)' }}>
-                      <td style={{ padding: '6px 10px', font: 'var(--md-body-small)', color: 'var(--md-sys-light-on-surface)' }}>{item.item_name}</td>
-                      <td style={{ padding: '6px 10px', font: 'var(--md-body-small)', color: 'var(--md-sys-light-on-surface-variant)', whiteSpace: 'nowrap' }}>{groupKey(item.category)}</td>
-                      <td style={{ padding: '6px 10px', font: 'var(--md-body-small)', color: 'var(--md-sys-light-on-surface-variant)' }}>{item.bank_name ?? '-'}</td>
-                      <td style={{ padding: '6px 10px', font: 'var(--md-body-small)', color: 'var(--md-sys-light-on-surface-variant)' }}>{item.account_holder ?? '-'}</td>
-                      <td style={{ padding: '6px 10px', font: 'var(--md-body-small)', color: 'var(--md-sys-light-on-surface-variant)' }}>{item.account_number ?? '-'}</td>
-                      <td style={{ padding: '6px 10px', font: 'var(--md-body-small)', color: 'var(--md-sys-light-on-surface)', textAlign: 'right', whiteSpace: 'nowrap' }}>{fmt(item.monthly_amount)}</td>
-                      <td style={{ padding: '6px 10px', whiteSpace: 'nowrap' }}>
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button style={btnSecondary} onClick={() => onEdit(item)}>편집</button>
-                          <button style={btnDanger} onClick={() => onDelete(item)}>삭제</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 // ── 메인 ─────────────────────────────────────────────────────
 type ModalMode = 'add' | 'edit' | null;
 
 export default function FixedExpenseStatus() {
   const qc = useQueryClient();
-  const [activeTab, setActiveTab] = useState<Tab>('목록');
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [editTarget, setEditTarget] = useState<FixedExpense | null>(null);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
 
   const { data: fixedExpenses = [], isLoading, error } = useQuery({
     queryKey: ['fixedExpenses'],
     queryFn: getFixedExpenses,
+    refetchInterval: 30000,
   });
 
   const availableYears = useMemo(() => {
     const years = new Set<number>();
     fixedExpenses.forEach((fe) => {
-      Object.keys(fe.monthly_data ?? {}).forEach((k) => years.add(parseInt(k.slice(0, 4))));
+      Object.keys(fe.monthly_data ?? {}).forEach((k) => {
+        const y = parseInt(k.slice(0, 4));
+        if (y >= 2000) years.add(y);
+      });
     });
     return Array.from(years).sort();
   }, [fixedExpenses]);
@@ -204,11 +129,25 @@ export default function FixedExpenseStatus() {
     if (!effectiveYear) return fixedExpenses;
     return fixedExpenses.map((fe) => ({
       ...fe,
+      monthly_amount: null, // 연도 필터링 시 monthly_amount 무효화 → monthly_data 기반 재계산
       monthly_data: Object.fromEntries(
         Object.entries(fe.monthly_data ?? {}).filter(([k]) => k.startsWith(`${effectiveYear}-`))
       ),
     }));
   }, [fixedExpenses, effectiveYear]);
+
+  const availableMonths = useMemo(() => {
+    const months = new Set<number>();
+    yearFilteredExpenses.forEach((fe) => {
+      Object.keys(fe.monthly_data ?? {}).forEach((k) => months.add(parseInt(k.slice(5, 7))));
+    });
+    return Array.from(months).sort((a, b) => a - b);
+  }, [yearFilteredExpenses]);
+
+  const handleYearChange = (year: number) => {
+    setSelectedYear(year);
+    setSelectedMonth(null);
+  };
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['fixedExpenses'] });
 
@@ -222,18 +161,26 @@ export default function FixedExpenseStatus() {
 
   const initialFormData: FormData = editTarget ? toFormData(editTarget) : { account_number: '', bank_name: '', account_holder: '', transfer_name: '', category: '', item_name: '', monthly_amount: '' };
 
-  const totalMonthly = fixedExpenses.reduce((s, i) => s + (i.monthly_amount ?? 0), 0);
+  const totalMonthly = useMemo(() => {
+    if (effectiveYear) {
+      const yearSum = yearFilteredExpenses.reduce(
+        (s, fe) => s + Object.values(fe.monthly_data ?? {}).reduce((ms, v) => ms + (v ?? 0), 0),
+        0
+      );
+      return availableMonths.length > 0 ? Math.round(yearSum / availableMonths.length) : 0;
+    }
+    return fixedExpenses.reduce((s, i) => s + (i.monthly_amount ?? 0), 0);
+  }, [effectiveYear, yearFilteredExpenses, availableMonths, fixedExpenses]);
 
-  const tabStyle = (key: Tab): React.CSSProperties => ({
-    padding: 'var(--md-space-sm) var(--md-space-md)',
-    font: 'var(--md-label-large)',
-    border: 'none',
-    borderBottom: activeTab === key ? '2px solid var(--md-sys-light-primary)' : '2px solid transparent',
-    background: 'transparent',
-    color: activeTab === key ? 'var(--md-sys-light-primary)' : 'var(--md-sys-light-on-surface-variant)',
+  const btnMonth = (active: boolean): React.CSSProperties => ({
+    padding: '4px 12px',
+    borderRadius: 'var(--md-radius-sm)',
+    border: active ? '2px solid var(--md-sys-light-secondary)' : '1px solid var(--md-sys-light-outline-variant)',
+    background: active ? 'var(--md-sys-light-secondary-container)' : 'var(--md-sys-light-surface)',
+    color: active ? 'var(--md-sys-light-on-secondary-container)' : 'var(--md-sys-light-on-surface-variant)',
+    font: 'var(--md-label-medium)',
     cursor: 'pointer',
     transition: 'all 0.15s ease',
-    whiteSpace: 'nowrap' as const,
   });
 
   if (isLoading) return <div style={cardStyle}><p>로딩 중...</p></div>;
@@ -254,31 +201,30 @@ export default function FixedExpenseStatus() {
 
       {/* 연도 탭 */}
       {availableYears.length > 0 && effectiveYear != null && (
-        <YearTabs years={availableYears} selected={effectiveYear} onChange={setSelectedYear} />
+        <YearTabs years={availableYears} selected={effectiveYear} onChange={handleYearChange} />
       )}
 
-      {/* 탭 */}
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--md-sys-light-outline-variant)', marginBottom: 'var(--md-space-md)', gap: '4px' }}>
-        {(['목록', '차트'] as Tab[]).map((t) => (
-          <button key={t} onClick={() => setActiveTab(t)} style={tabStyle(t)}>
-            {t}
-            {t === '목록' && (
-              <span style={{ marginLeft: '4px', padding: '1px 6px', borderRadius: '999px', font: 'var(--md-label-small)', backgroundColor: activeTab === '목록' ? 'var(--md-sys-light-primary)' : 'var(--md-sys-light-surface-container-high)', color: activeTab === '목록' ? 'var(--md-sys-light-on-primary)' : 'var(--md-sys-light-on-surface-variant)' }}>
-                {fixedExpenses.length}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* 탭 콘텐츠 */}
-      {activeTab === '목록' && (
-        <GroupedList items={fixedExpenses} onEdit={handleEdit} onDelete={handleDelete} />
+      {/* 월 탭 */}
+      {availableMonths.length > 0 && (
+        <div style={{ display: 'flex', gap: 4, marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+          <button onClick={() => setSelectedMonth(null)} style={btnMonth(selectedMonth === null)}>전체</button>
+          {availableMonths.map((m) => (
+            <button key={m} onClick={() => setSelectedMonth(m)} style={btnMonth(selectedMonth === m)}>{m}월</button>
+          ))}
+        </div>
       )}
-      {activeTab === '차트' && (
-        yearFilteredExpenses.length > 0
-          ? <FixedExpenseCharts fixedExpenses={yearFilteredExpenses} />
-          : <p style={{ font: 'var(--md-body-medium)', color: 'var(--md-sys-light-on-surface-variant)', padding: 'var(--md-space-lg) 0' }}>데이터가 없습니다.</p>
+
+      {/* 콘텐츠 */}
+      {effectiveYear !== null ? (
+        <FixedExpenseDetailView
+          fixedExpenses={yearFilteredExpenses}
+          year={effectiveYear}
+          month={selectedMonth}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+        />
+      ) : (
+        <p style={{ font: 'var(--md-body-medium)', color: 'var(--md-sys-light-on-surface-variant)' }}>데이터가 없습니다.</p>
       )}
 
       {/* 모달 */}
@@ -290,7 +236,7 @@ export default function FixedExpenseStatus() {
       )}
       {modalMode === 'edit' && editTarget && (
         <Modal title="고정비 편집" onClose={handleClose}>
-          <ExpenseForm initial={initialFormData} onSubmit={(d) => updateMut.mutate({ id: editTarget.id, data: d })} onCancel={handleClose} isLoading={updateMut.isPending} submitLabel="저장" />
+          <ExpenseForm key={editTarget.id} initial={initialFormData} onSubmit={(d) => updateMut.mutate({ id: editTarget.id, data: d })} onCancel={handleClose} isLoading={updateMut.isPending} submitLabel="저장" />
           {updateMut.isError && <p style={{ color: 'rgba(186,26,26,0.9)', font: 'var(--md-body-small)', marginTop: '8px' }}>오류: {(updateMut.error as Error).message}</p>}
         </Modal>
       )}

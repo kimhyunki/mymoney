@@ -37,8 +37,7 @@ export default function LoanPage() {
   if (isLoading) return <div style={{ padding: 'var(--md-space-lg)' }}>불러오는 중...</div>;
 
   const totalLiabilities = snap?.total_liabilities ?? 0;
-  const liabData = (snap?.snapshot_data as Record<string, unknown>)?._liabilities as
-    Record<string, { name: string; amount: number }[]> | undefined;
+  const liabData = snap?.snapshot_data?._liabilities;
   const updatedAt = snap ? new Date(snap.updated_at).toLocaleString('ko-KR') : null;
 
   const categories = liabData ? Object.entries(liabData) : [];

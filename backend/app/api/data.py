@@ -612,6 +612,38 @@ async def import_banksalad_excel(
 
             db.commit()
 
+        # investment_principal / investment_value → 가장 최근 MonthlySummary에 반영
+        # investment_value: 엑셀 투자성 자산 섹션의 평가금액 합계
+        # investment_principal: InvestmentStatus DB의 원금 합계
+        if excel_investments:
+            inv_value_total = sum(v for _, v in excel_investments)
+            all_inv_for_principal = db.query(InvestmentStatus).all()
+            inv_principal_total: "float | None" = None
+            principal_sum = sum(
+                float(inv.principal)
+                for inv in all_inv_for_principal
+                if inv.principal is not None and float(inv.principal) > 0
+            )
+            if principal_sum > 0:
+                inv_principal_total = principal_sum
+
+            # 가장 마지막 월(현재 파일 기준)의 MonthlySummary에 저장
+            if month_labels:
+                last_label = month_labels[-1]
+                try:
+                    last_year, last_month = int(last_label[:4]), int(last_label[5:7])
+                    latest_ms = db.query(MonthlySummary).filter(
+                        MonthlySummary.year == last_year,
+                        MonthlySummary.month == last_month,
+                    ).first()
+                    if latest_ms:
+                        latest_ms.investment_value = inv_value_total
+                        if inv_principal_total is not None:
+                            latest_ms.investment_principal = inv_principal_total
+                        db.commit()
+                except (ValueError, IndexError):
+                    pass
+
         # 5. 재무현황 (3.재무현황 섹션, rows 39~119)
         # col B(index 0)=카테고리, col C(index 1)=상품명, col E(index 3)=금액(자산), col I(index 7)=금액(부채)
         ASSET_CATEGORIES = {

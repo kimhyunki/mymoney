@@ -119,11 +119,11 @@ docs/
 
 ## Git Remote
 
-- Remote URL: `git@github.com-private:kimhyunki/mymoney.git`
-- SSH alias `github.com-private` → `~/.ssh/khk/id_rsa` key → GitHub account `kimhyunki`
+- Remote URL: `git@github.com-kimhyunki:kimhyunki/mymoney.git`
+- SSH alias `github.com-kimhyunki` → `~/.ssh/kimhyunki/id_rsa` key → GitHub account `kimhyunki`
 - Do NOT use the `github.com-connev` alias for this repo — that maps to the `khk04` account
 
 If remote is misconfigured:
 ```bash
-git remote set-url origin git@github.com-private:kimhyunki/mymoney.git
+git remote set-url origin git@github.com-kimhyunki:kimhyunki/mymoney.git
 ```

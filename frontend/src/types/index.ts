@@ -277,12 +277,28 @@ export interface FinancialSnapshotItem {
   amount: number;
 }
 
+/**
+ * snapshot_data 구조:
+ * - 자산 카테고리 키 (e.g. '자유입출금 자산', '투자성 자산', ...): FinancialSnapshotItem[]
+ * - '_liabilities' 키: 부채 카테고리명 → FinancialSnapshotItem[] 의 중첩 맵
+ *
+ * 인덱스 시그니처를 그대로 유지하되, _liabilities 접근 시 컴포넌트에서
+ * Record<string, FinancialSnapshotItem[]> 로 별도 캐스팅 없이 타입 안전하게
+ * 사용하려면 아래 FinancialSnapshotLiabilities 타입을 함께 활용하세요.
+ */
+export type FinancialSnapshotLiabilities = Record<string, FinancialSnapshotItem[]>;
+
 export interface FinancialSnapshot {
   id: number;
   total_assets: number | null;
   total_liabilities: number | null;
   net_assets: number | null;
-  snapshot_data: Record<string, FinancialSnapshotItem[]> | null;
+  /**
+   * 자산 카테고리별 항목 목록.
+   * '_liabilities' 키는 부채 카테고리명 → 항목 목록의 중첩 맵으로 저장됨.
+   * 해당 키 접근 시 FinancialSnapshotLiabilities 타입으로 캐스팅 필요.
+   */
+  snapshot_data: (Record<string, FinancialSnapshotItem[]> & { _liabilities?: FinancialSnapshotLiabilities }) | null;
   created_at: string;
   updated_at: string;
 }

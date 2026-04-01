@@ -271,11 +271,18 @@ class UploadHistoryResponse(BaseModel):
 
 
 # ── FinancialSnapshot ─────────────────────────────────────────
+class FinancialSnapshotItem(BaseModel):
+    name: str
+    amount: float
+
+
 class FinancialSnapshotResponse(BaseModel):
     id: int
     total_assets: Optional[float] = None
     total_liabilities: Optional[float] = None
     net_assets: Optional[float] = None
+    # 자산 카테고리 키 → [{name, amount}] 목록.
+    # '_liabilities' 키는 부채 카테고리명 → [{name, amount}] 의 중첩 맵.
     snapshot_data: Optional[Dict[str, Any]] = None
     created_at: datetime
     updated_at: datetime
