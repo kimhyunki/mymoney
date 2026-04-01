@@ -147,3 +147,10 @@ __pycache__/
 
 # Cursor IDE
 .cursor/
+
+# macOS
+.DS_Store
+
+# Reference / sample data (Excel files, financial data)
+ref/
+backend/ref/

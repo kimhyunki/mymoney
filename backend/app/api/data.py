@@ -617,11 +617,11 @@ async def import_banksalad_excel(
         # investment_principal: InvestmentStatus DB의 원금 합계
         if excel_investments:
             inv_value_total = sum(v for _, v in excel_investments)
-            all_inv_for_principal = db.query(InvestmentStatus).all()
+            # all_inv_db는 위에서 이미 조회한 전체 InvestmentStatus 목록을 재사용
             inv_principal_total: "float | None" = None
             principal_sum = sum(
                 float(inv.principal)
-                for inv in all_inv_for_principal
+                for inv in all_inv_db
                 if inv.principal is not None and float(inv.principal) > 0
             )
             if principal_sum > 0:
