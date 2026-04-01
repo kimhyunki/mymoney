@@ -48,9 +48,15 @@ export default function CashFlowCharts({ cashFlows }: CashFlowChartsProps) {
     [allMonths, incomeItems, expenseItems]
   );
 
+  const itemTotal = (item: CashFlow): number => {
+    if (item.total && item.total > 0) return item.total;
+    if (item.monthly_data) return Object.values(item.monthly_data as Record<string, number>).reduce((s, v) => s + (v || 0), 0);
+    return 0;
+  };
+
   const incomeByItem = useMemo(() =>
     incomeItems
-      .map((i) => ({ name: i.item_name, 총계: i.total || 0 }))
+      .map((i) => ({ name: i.item_name, 총계: itemTotal(i) }))
       .filter((i) => i.총계 > 0)
       .sort((a, b) => b.총계 - a.총계),
     [incomeItems]
@@ -58,7 +64,7 @@ export default function CashFlowCharts({ cashFlows }: CashFlowChartsProps) {
 
   const expenseByItem = useMemo(() =>
     expenseItems
-      .map((i) => ({ name: i.item_name, 총계: i.total || 0 }))
+      .map((i) => ({ name: i.item_name, 총계: itemTotal(i) }))
       .filter((i) => i.총계 > 0)
       .sort((a, b) => b.총계 - a.총계),
     [expenseItems]

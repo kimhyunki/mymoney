@@ -211,6 +211,90 @@ export interface RealEstateAnalysisCreate {
 
 export interface RealEstateAnalysisUpdate extends RealEstateAnalysisCreate {}
 
+export interface InvestmentStatus {
+  id: number;
+  investment_type: string | null;
+  company: string | null;
+  product_name: string;
+  principal: number | null;
+  current_value: number | null;
+  return_rate: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InvestmentStatusCreate {
+  investment_type?: string | null;
+  company?: string | null;
+  product_name: string;
+  principal?: number | null;
+  current_value?: number | null;
+  return_rate?: number | null;
+}
+
+export interface InvestmentStatusUpdate {
+  investment_type?: string | null;
+  company?: string | null;
+  product_name?: string;
+  principal?: number | null;
+  current_value?: number | null;
+  return_rate?: number | null;
+}
+
+export interface LedgerTransaction {
+  id: number;
+  transaction_date: string | null;
+  transaction_time: string | null;
+  transaction_type: string | null;
+  category: string | null;
+  subcategory: string | null;
+  description: string | null;
+  amount: number | null;
+  currency: string | null;
+  payment_method: string | null;
+  memo: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LedgerTransactionCreate {
+  transaction_date?: string | null;
+  transaction_time?: string | null;
+  transaction_type?: string | null;
+  category?: string | null;
+  subcategory?: string | null;
+  description?: string | null;
+  amount?: number | null;
+  currency?: string | null;
+  payment_method?: string | null;
+  memo?: string | null;
+}
+
+export interface LedgerTransactionUpdate extends LedgerTransactionCreate {}
+
+export interface FinancialSnapshotItem {
+  name: string;
+  amount: number;
+}
+
+export interface FinancialSnapshot {
+  id: number;
+  total_assets: number | null;
+  total_liabilities: number | null;
+  net_assets: number | null;
+  snapshot_data: Record<string, FinancialSnapshotItem[]> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UploadHistory {
+  id: number;
+  filename: string;
+  file_size: number | null;
+  result_json: Record<string, any> | null;
+  created_at: string;
+}
+
 // 뱅샐현황 관련 타입
 export type {
   CashFlowItem,

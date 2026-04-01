@@ -61,17 +61,15 @@ const tdStyle: React.CSSProperties = {
   font: 'var(--md-body-small)', color: 'var(--md-sys-light-on-surface)', whiteSpace: 'nowrap',
 };
 
-// ── 폼 타입 ───────────────────────────────────────────────────
+// ── 폼 타입 (계산 항목 제외) ──────────────────────────────────
 type FormState = {
   property_name: string; total_acquisition_cost: string; self_capital: string;
   loan_capital: string; current_market_value: string; unrealized_gain: string;
-  roe: string; leverage_multiple: string; acceleration_factor: string;
 };
 
 const emptyForm = (): FormState => ({
   property_name: '', total_acquisition_cost: '', self_capital: '',
   loan_capital: '', current_market_value: '', unrealized_gain: '',
-  roe: '', leverage_multiple: '', acceleration_factor: '',
 });
 
 function analysisToForm(a: RealEstateAnalysis): FormState {
@@ -82,9 +80,6 @@ function analysisToForm(a: RealEstateAnalysis): FormState {
     loan_capital: a.loan_capital != null ? String(a.loan_capital) : '',
     current_market_value: a.current_market_value != null ? String(a.current_market_value) : '',
     unrealized_gain: a.unrealized_gain != null ? String(a.unrealized_gain) : '',
-    roe: a.roe != null ? String(a.roe) : '',
-    leverage_multiple: a.leverage_multiple != null ? String(a.leverage_multiple) : '',
-    acceleration_factor: a.acceleration_factor != null ? String(a.acceleration_factor) : '',
   };
 }
 
@@ -93,14 +88,27 @@ function parseNum(v: string): number | null {
   return isNaN(n) ? null : n;
 }
 
+// ROE, 레버리지, 가속도는 입력값으로부터 자동 계산
+function calcDerived(total: number | null, self: number | null, unrealized: number | null) {
+  const leverage = total != null && self != null && self !== 0 ? total / self : null;
+  const roe = unrealized != null && self != null && self !== 0 ? unrealized / self : null;
+  const accel = leverage != null ? leverage - 1 : null;
+  return { roe, leverage_multiple: leverage, acceleration_factor: accel };
+}
+
 function formToPayload(f: FormState): RealEstateAnalysisCreate {
+  const total = parseNum(f.total_acquisition_cost);
+  const self = parseNum(f.self_capital);
+  const unrealized = parseNum(f.unrealized_gain);
+  const derived = calcDerived(total, self, unrealized);
   return {
     property_name: f.property_name || null,
-    total_acquisition_cost: parseNum(f.total_acquisition_cost),
-    self_capital: parseNum(f.self_capital), loan_capital: parseNum(f.loan_capital),
-    current_market_value: parseNum(f.current_market_value), unrealized_gain: parseNum(f.unrealized_gain),
-    roe: parseNum(f.roe), leverage_multiple: parseNum(f.leverage_multiple),
-    acceleration_factor: parseNum(f.acceleration_factor),
+    total_acquisition_cost: total,
+    self_capital: self,
+    loan_capital: parseNum(f.loan_capital),
+    current_market_value: parseNum(f.current_market_value),
+    unrealized_gain: unrealized,
+    ...derived,
   };
 }
 
@@ -109,11 +117,25 @@ function RealEstateModal({ title, form, onChange, onSubmit, onCancel, submitting
   title: string; form: FormState; onChange: (field: keyof FormState, value: string) => void;
   onSubmit: () => void; onCancel: () => void; submitting: boolean; submitLabel: string;
 }) {
+  const total = parseNum(form.total_acquisition_cost);
+  const self = parseNum(form.self_capital);
+  const unrealized = parseNum(form.unrealized_gain);
+  const derived = calcDerived(total, self, unrealized);
+
   const field = (key: keyof FormState, label: string, placeholder = '') => (
     <label style={labelStyle}>
       {label}
       <input type="number" style={inputStyle} value={form[key]} placeholder={placeholder}
         onChange={e => onChange(key, e.target.value)} />
+    </label>
+  );
+
+  const calcField = (label: string, value: number | null, fmt: (v: number) => string) => (
+    <label style={labelStyle}>
+      <span>{label} <span style={{ color: 'var(--md-sys-light-primary)', fontSize: '0.85em' }}>자동계산</span></span>
+      <div style={{ ...inputStyle, backgroundColor: 'var(--md-sys-light-surface-container)', color: 'var(--md-sys-light-on-surface-variant)', cursor: 'default' }}>
+        {value != null ? fmt(value) : '—'}
+      </div>
     </label>
   );
 
@@ -136,9 +158,9 @@ function RealEstateModal({ title, form, onChange, onSubmit, onCancel, submitting
           {field('loan_capital', '대출자본', '0')}
           {field('current_market_value', '현재 시세', '0')}
           {field('unrealized_gain', '미실현 이익', '0')}
-          {field('roe', 'ROE (%)', '0')}
-          {field('leverage_multiple', '레버리지 배수', '0')}
-          {field('acceleration_factor', '가속도 인수', '0')}
+          {calcField('ROE', derived.roe, v => `${(v * 100).toFixed(2)}%`)}
+          {calcField('레버리지 배수', derived.leverage_multiple, v => v.toFixed(4))}
+          {calcField('가속도', derived.acceleration_factor, v => v.toFixed(4))}
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '22px' }}>
           <button style={btnSecondary} onClick={onCancel} disabled={submitting}>취소</button>
@@ -203,7 +225,15 @@ function RealEstateStatus() {
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
   const fmtNum = (v: number | null) => v != null ? v.toLocaleString() : '-';
-  const fmtPct = (v: number | null) => v != null ? `${v}%` : '-';
+
+  function computedRow(a: RealEstateAnalysis) {
+    const d = calcDerived(a.total_acquisition_cost, a.self_capital, a.unrealized_gain);
+    return {
+      roe: d.roe != null ? `${(d.roe * 100).toFixed(2)}%` : '-',
+      leverage: d.leverage_multiple != null ? d.leverage_multiple.toFixed(4) : '-',
+      accel: d.acceleration_factor != null ? d.acceleration_factor.toFixed(4) : '-',
+    };
+  }
 
   const tabStyle = (key: Tab): React.CSSProperties => ({
     padding: 'var(--md-space-sm) var(--md-space-md)', font: 'var(--md-label-large)', border: 'none',
@@ -258,7 +288,9 @@ function RealEstateStatus() {
                 </tr>
               </thead>
               <tbody>
-                {analyses.map(a => (
+                {analyses.map(a => {
+                  const calc = computedRow(a);
+                  return (
                   <tr key={a.id}>
                     <td style={{ ...tdStyle, fontWeight: 500 }}>{a.property_name ?? `부동산 #${a.id}`}</td>
                     <td style={{ ...tdStyle, textAlign: 'right' }}>{fmtNum(a.total_acquisition_cost)}</td>
@@ -266,9 +298,9 @@ function RealEstateStatus() {
                     <td style={{ ...tdStyle, textAlign: 'right' }}>{fmtNum(a.loan_capital)}</td>
                     <td style={{ ...tdStyle, textAlign: 'right' }}>{fmtNum(a.current_market_value)}</td>
                     <td style={{ ...tdStyle, textAlign: 'right' }}>{fmtNum(a.unrealized_gain)}</td>
-                    <td style={tdStyle}>{fmtPct(a.roe)}</td>
-                    <td style={tdStyle}>{a.leverage_multiple != null ? a.leverage_multiple : '-'}</td>
-                    <td style={tdStyle}>{a.acceleration_factor != null ? a.acceleration_factor : '-'}</td>
+                    <td style={{ ...tdStyle, color: 'var(--md-sys-light-primary)' }}>{calc.roe}</td>
+                    <td style={{ ...tdStyle, color: 'var(--md-sys-light-primary)' }}>{calc.leverage}</td>
+                    <td style={{ ...tdStyle, color: 'var(--md-sys-light-primary)' }}>{calc.accel}</td>
                     <td style={tdStyle}>
                       <div style={{ display: 'flex', gap: '6px' }}>
                         <button style={btnSecondary} onClick={() => openEdit(a)}>편집</button>
@@ -276,7 +308,8 @@ function RealEstateStatus() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

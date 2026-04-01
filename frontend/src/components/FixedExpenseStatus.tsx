@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getFixedExpenses, createFixedExpense, updateFixedExpense, deleteFixedExpense } from '@/lib/api';
 import type { FixedExpense, FixedExpenseCreate, FixedExpenseUpdate } from '@/types';
 import FixedExpenseCharts from './FixedExpenseCharts';
+import YearTabs from './YearTabs';
 
 type Tab = '목록' | '차트';
 
@@ -182,11 +183,32 @@ export default function FixedExpenseStatus() {
   const [activeTab, setActiveTab] = useState<Tab>('목록');
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [editTarget, setEditTarget] = useState<FixedExpense | null>(null);
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
 
   const { data: fixedExpenses = [], isLoading, error } = useQuery({
     queryKey: ['fixedExpenses'],
     queryFn: getFixedExpenses,
   });
+
+  const availableYears = useMemo(() => {
+    const years = new Set<number>();
+    fixedExpenses.forEach((fe) => {
+      Object.keys(fe.monthly_data ?? {}).forEach((k) => years.add(parseInt(k.slice(0, 4))));
+    });
+    return Array.from(years).sort();
+  }, [fixedExpenses]);
+
+  const effectiveYear = selectedYear ?? (availableYears.at(-1) ?? null);
+
+  const yearFilteredExpenses = useMemo(() => {
+    if (!effectiveYear) return fixedExpenses;
+    return fixedExpenses.map((fe) => ({
+      ...fe,
+      monthly_data: Object.fromEntries(
+        Object.entries(fe.monthly_data ?? {}).filter(([k]) => k.startsWith(`${effectiveYear}-`))
+      ),
+    }));
+  }, [fixedExpenses, effectiveYear]);
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['fixedExpenses'] });
 
@@ -230,6 +252,11 @@ export default function FixedExpenseStatus() {
         <button style={btnPrimary} onClick={() => { setEditTarget(null); setModalMode('add'); }}>+ 추가</button>
       </div>
 
+      {/* 연도 탭 */}
+      {availableYears.length > 0 && effectiveYear != null && (
+        <YearTabs years={availableYears} selected={effectiveYear} onChange={setSelectedYear} />
+      )}
+
       {/* 탭 */}
       <div style={{ display: 'flex', borderBottom: '1px solid var(--md-sys-light-outline-variant)', marginBottom: 'var(--md-space-md)', gap: '4px' }}>
         {(['목록', '차트'] as Tab[]).map((t) => (
@@ -249,8 +276,8 @@ export default function FixedExpenseStatus() {
         <GroupedList items={fixedExpenses} onEdit={handleEdit} onDelete={handleDelete} />
       )}
       {activeTab === '차트' && (
-        fixedExpenses.length > 0
-          ? <FixedExpenseCharts fixedExpenses={fixedExpenses} />
+        yearFilteredExpenses.length > 0
+          ? <FixedExpenseCharts fixedExpenses={yearFilteredExpenses} />
           : <p style={{ font: 'var(--md-body-medium)', color: 'var(--md-sys-light-on-surface-variant)', padding: 'var(--md-space-lg) 0' }}>데이터가 없습니다.</p>
       )}
 

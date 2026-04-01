@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getCashFlows, createCashFlow, updateCashFlow, deleteCashFlow } from '@/lib/api';
 import type { CashFlow, CashFlowCreate } from '@/types';
 import CashFlowCharts from './CashFlowCharts';
+import YearTabs from './YearTabs';
 
 type Tab = '수입' | '지출' | '차트';
 
@@ -39,9 +40,10 @@ function CashFlowForm({
 }) {
   const [form, setForm] = useState<CashFlowCreate>(
     initial
-      ? { item_name: initial.item_name, item_type: initial.item_type ?? '지출', total: initial.total ?? undefined, monthly_average: initial.monthly_average ?? undefined, monthly_data: initial.monthly_data }
+      ? { item_name: initial.item_name, item_type: initial.item_type ?? '지출', total: initial.total ?? undefined, monthly_average: undefined, monthly_data: initial.monthly_data }
       : { ...EMPTY_FORM }
   );
+  const monthlyAvg = form.total != null ? Math.round(form.total / 12) : null;
 
   const inputStyle: React.CSSProperties = {
     padding: 'var(--md-space-sm) var(--md-space-md)',
@@ -77,16 +79,26 @@ function CashFlowForm({
           <input type="number" style={inputStyle} value={form.total ?? ''} onChange={(e) => setForm({ ...form, total: e.target.value ? Number(e.target.value) : undefined })} placeholder="0" />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          {lbl('월평균 (원)')}
-          <input type="number" style={inputStyle} value={form.monthly_average ?? ''} onChange={(e) => setForm({ ...form, monthly_average: e.target.value ? Number(e.target.value) : undefined })} placeholder="0" />
+          <label style={{ font: 'var(--md-label-small)', color: 'var(--md-sys-light-on-surface-variant)' }}>
+            월평균 (원) <span style={{ color: 'var(--md-sys-light-primary)', fontSize: '0.85em' }}>자동계산</span>
+          </label>
+          <div style={{ padding: 'var(--md-space-sm) var(--md-space-md)', borderRadius: 'var(--md-radius-sm)', border: '1px solid var(--md-sys-light-outline-variant)', font: 'var(--md-body-medium)', background: 'var(--md-sys-light-surface-container)', color: 'var(--md-sys-light-primary)', cursor: 'default' }}>
+            {monthlyAvg != null ? monthlyAvg.toLocaleString() : '—'}
+          </div>
         </div>
       </div>
       <div style={{ display: 'flex', gap: 'var(--md-space-sm)', justifyContent: 'flex-end', marginTop: 'var(--md-space-sm)' }}>
         <button onClick={onCancel} style={{ padding: 'var(--md-space-sm) var(--md-space-md)', borderRadius: 'var(--md-radius-sm)', border: '1px solid var(--md-sys-light-outline-variant)', background: 'transparent', cursor: 'pointer', font: 'var(--md-label-large)', color: 'var(--md-sys-light-on-surface-variant)' }}>취소</button>
-        <button onClick={() => form.item_name.trim() && onSave(form)} disabled={!form.item_name.trim()} style={{ padding: 'var(--md-space-sm) var(--md-space-md)', borderRadius: 'var(--md-radius-sm)', border: 'none', background: 'var(--md-sys-light-primary)', color: 'var(--md-sys-light-on-primary)', cursor: 'pointer', font: 'var(--md-label-large)' }}>저장</button>
+        <button onClick={() => form.item_name.trim() && onSave({ ...form, monthly_average: monthlyAvg ?? undefined })} disabled={!form.item_name.trim()} style={{ padding: 'var(--md-space-sm) var(--md-space-md)', borderRadius: 'var(--md-radius-sm)', border: 'none', background: 'var(--md-sys-light-primary)', color: 'var(--md-sys-light-on-primary)', cursor: 'pointer', font: 'var(--md-label-large)' }}>저장</button>
       </div>
     </div>
   );
+}
+
+function itemEffectiveTotal(c: CashFlow): number {
+  if (c.total && c.total > 0) return c.total;
+  if (c.monthly_data) return Object.values(c.monthly_data as Record<string, number>).reduce((s, v) => s + (v || 0), 0);
+  return 0;
 }
 
 function ItemTable({
@@ -121,10 +133,14 @@ function ItemTable({
             <tr key={item.id} style={{ borderBottom: '1px solid var(--md-sys-light-outline-variant)' }}>
               <td style={{ padding: '8px 12px', font: 'var(--md-body-medium)', color: 'var(--md-sys-light-on-surface)' }}>{item.item_name}</td>
               <td style={{ padding: '8px 12px', textAlign: 'right', font: 'var(--md-body-medium)', color: 'var(--md-sys-light-on-surface)' }}>
-                {item.total != null ? item.total.toLocaleString() : '-'}
+                {itemEffectiveTotal(item) > 0 ? itemEffectiveTotal(item).toLocaleString() : '-'}
               </td>
               <td style={{ padding: '8px 12px', textAlign: 'right', font: 'var(--md-body-medium)', color: 'var(--md-sys-light-on-surface)' }}>
-                {item.monthly_average != null ? Math.round(item.monthly_average).toLocaleString() : '-'}
+                {(() => {
+                  const t = itemEffectiveTotal(item);
+                  const months = item.monthly_data ? Object.keys(item.monthly_data).length : 0;
+                  return t > 0 && months > 0 ? Math.round(t / months).toLocaleString() : '-';
+                })()}
               </td>
               <td style={{ padding: '8px 12px' }}>
                 <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
@@ -145,11 +161,32 @@ export default function CashFlowStatus() {
   const [activeTab, setActiveTab] = useState<Tab>('수입');
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<CashFlow | null>(null);
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
 
   const { data: cashFlows = [], isLoading, error } = useQuery({
     queryKey: ['cashFlows'],
     queryFn: getCashFlows,
   });
+
+  const availableYears = useMemo(() => {
+    const years = new Set<number>();
+    cashFlows.forEach((cf) => {
+      Object.keys(cf.monthly_data ?? {}).forEach((k) => years.add(parseInt(k.slice(0, 4))));
+    });
+    return Array.from(years).sort();
+  }, [cashFlows]);
+
+  const effectiveYear = selectedYear ?? (availableYears.at(-1) ?? null);
+
+  const yearFilteredCashFlows = useMemo(() => {
+    if (!effectiveYear) return cashFlows;
+    return cashFlows.map((cf) => ({
+      ...cf,
+      monthly_data: Object.fromEntries(
+        Object.entries(cf.monthly_data ?? {}).filter(([k]) => k.startsWith(`${effectiveYear}-`))
+      ),
+    }));
+  }, [cashFlows, effectiveYear]);
 
   const addMutation = useMutation({
     mutationFn: createCashFlow,
@@ -177,10 +214,16 @@ export default function CashFlowStatus() {
   if (isLoading) return <div style={cardStyle}><p>로딩 중...</p></div>;
   if (error) return <div style={cardStyle}><p style={{ color: 'rgba(186,26,26,0.9)' }}>오류가 발생했습니다.</p></div>;
 
-  const incomeItems = cashFlows.filter((c) => c.item_type === '수입');
-  const expenseItems = cashFlows.filter((c) => c.item_type === '지출');
-  const incomeTotal = incomeItems.reduce((s, c) => s + (c.total ?? 0), 0);
-  const expenseTotal = expenseItems.reduce((s, c) => s + (c.total ?? 0), 0);
+  const itemTotal = (c: CashFlow): number => {
+    if (c.total && c.total > 0) return c.total;
+    if (c.monthly_data) return Object.values(c.monthly_data as Record<string, number>).reduce((s, v) => s + (v || 0), 0);
+    return 0;
+  };
+
+  const incomeItems = yearFilteredCashFlows.filter((c) => c.item_type === '수입');
+  const expenseItems = yearFilteredCashFlows.filter((c) => c.item_type === '지출');
+  const incomeTotal = incomeItems.reduce((s, c) => s + itemTotal(c), 0);
+  const expenseTotal = expenseItems.reduce((s, c) => s + itemTotal(c), 0);
 
   const tabs: { key: Tab; label: string; count?: number }[] = [
     { key: '수입', label: '수입', count: incomeItems.length },
@@ -214,6 +257,11 @@ export default function CashFlowStatus() {
           + 추가
         </button>
       </div>
+
+      {/* 연도 탭 */}
+      {availableYears.length > 0 && effectiveYear != null && (
+        <YearTabs years={availableYears} selected={effectiveYear} onChange={setSelectedYear} />
+      )}
 
       {/* 요약 */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--md-space-md)', marginBottom: 'var(--md-space-md)' }}>
@@ -249,8 +297,8 @@ export default function CashFlowStatus() {
         <ItemTable items={expenseItems} onEdit={setEditing} onDelete={(id) => deleteMutation.mutate(id)} />
       )}
       {activeTab === '차트' && (
-        cashFlows.length > 0
-          ? <CashFlowCharts cashFlows={cashFlows} />
+        yearFilteredCashFlows.length > 0
+          ? <CashFlowCharts cashFlows={yearFilteredCashFlows} />
           : <p style={{ font: 'var(--md-body-medium)', color: 'var(--md-sys-light-on-surface-variant)', padding: 'var(--md-space-lg) 0' }}>데이터가 없습니다.</p>
       )}
 

@@ -10,11 +10,17 @@ interface MenuItem {
 const menuItems: MenuItem[] = [
   { path: '/', label: '홈', icon: '🏠' },
   { path: '/customers', label: '고객 정보', icon: '👥' },
-  { path: '/cashflow', label: '현금 흐름', icon: '💰' },
+  { path: '/cashflow', label: '현금 흐름 현황', icon: '💰' },
+  { path: '/financial-status', label: '재무 현황', icon: '🏦' },
+  { path: '/insurance', label: '보험 현황', icon: '🛡️' },
+  { path: '/investment', label: '투자 현황', icon: '📈' },
+  { path: '/loans', label: '대출 현황', icon: '🏦' },
   { path: '/fixed-expenses', label: '고정비', icon: '📋' },
   { path: '/monthly-summary', label: '월별 결산', icon: '📅' },
   { path: '/financial-goal', label: '분양금 계획', icon: '🏗️' },
   { path: '/real-estate', label: '부동산 분석', icon: '🏡' },
+  { path: '/ledger', label: '가계부 내역', icon: '📒' },
+  { path: '/import', label: 'Excel 가져오기', icon: '📥' },
 ];
 
 export default function Layout() {

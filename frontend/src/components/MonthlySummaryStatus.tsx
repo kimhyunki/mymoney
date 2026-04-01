@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getMonthlySummaries,
@@ -8,6 +8,7 @@ import {
 } from '@/lib/api';
 import type { MonthlySummary, MonthlySummaryCreate, MonthlySummaryUpdate } from '@/types';
 import MonthlySummaryCharts from './MonthlySummaryCharts';
+import YearTabs from './YearTabs';
 
 type Tab = '목록' | '차트';
 
@@ -77,16 +78,16 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   );
 }
 
-// ── 폼 타입 ───────────────────────────────────────────────────
+// ── 폼 타입 (순수익 제외 — 자동계산) ─────────────────────────
 interface FormData {
   year: string; month: string; income: string; expense: string;
-  net_income: string; cumulative_net_income: string;
+  cumulative_net_income: string;
   investment_principal: string; investment_value: string;
 }
 
 const emptyFormData = (): FormData => ({
   year: String(new Date().getFullYear()), month: String(new Date().getMonth() + 1),
-  income: '', expense: '', net_income: '', cumulative_net_income: '',
+  income: '', expense: '', cumulative_net_income: '',
   investment_principal: '', investment_value: '',
 });
 
@@ -95,7 +96,6 @@ function toFormData(s: MonthlySummary): FormData {
     year: String(s.year), month: String(s.month),
     income: s.income != null ? String(s.income) : '',
     expense: s.expense != null ? String(s.expense) : '',
-    net_income: s.net_income != null ? String(s.net_income) : '',
     cumulative_net_income: s.cumulative_net_income != null ? String(s.cumulative_net_income) : '',
     investment_principal: s.investment_principal != null ? String(s.investment_principal) : '',
     investment_value: s.investment_value != null ? String(s.investment_value) : '',
@@ -107,11 +107,12 @@ function parseNum(val: string): number | null {
   const n = Number(t); return isNaN(n) ? null : n;
 }
 
-function fromFormData(fd: FormData): MonthlySummaryCreate {
+function fromFormData(fd: FormData, netIncome: number | null): MonthlySummaryCreate {
   return {
     year: Number(fd.year), month: Number(fd.month),
     income: parseNum(fd.income), expense: parseNum(fd.expense),
-    net_income: parseNum(fd.net_income), cumulative_net_income: parseNum(fd.cumulative_net_income),
+    net_income: netIncome,
+    cumulative_net_income: parseNum(fd.cumulative_net_income),
     investment_principal: parseNum(fd.investment_principal), investment_value: parseNum(fd.investment_value),
   };
 }
@@ -125,17 +126,32 @@ function SummaryForm({ initial, onSubmit, onCancel, isLoading, submitLabel }: {
   const handle = (field: keyof FormData) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setFd((prev) => ({ ...prev, [field]: e.target.value }));
 
+  const income = parseNum(fd.income);
+  const expense = parseNum(fd.expense);
+  const netIncome = income != null && expense != null ? income - expense : null;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const y = Number(fd.year), m = Number(fd.month);
     if (!y || !m || m < 1 || m > 12) return;
-    onSubmit(fromFormData(fd));
+    onSubmit(fromFormData(fd, netIncome));
   };
 
   const nf = (label: string, field: keyof FormData, required = false) => (
     <div style={{ marginBottom: '14px' }}>
       <label style={labelStyle}>{label}{required && <span style={{ color: 'rgba(186,26,26,0.9)' }}> *</span>}</label>
       <input style={inputStyle} type="number" value={fd[field]} onChange={handle(field)} required={required} placeholder="0" />
+    </div>
+  );
+
+  const calcDiv = (label: string, value: number | null) => (
+    <div style={{ marginBottom: '14px' }}>
+      <label style={labelStyle}>
+        {label} <span style={{ color: 'var(--md-sys-light-primary)', fontSize: '0.85em' }}>자동계산</span>
+      </label>
+      <div style={{ ...inputStyle, backgroundColor: 'var(--md-sys-light-surface-container)', color: value != null && value < 0 ? 'rgba(186,26,26,0.9)' : 'var(--md-sys-light-primary)', cursor: 'default' }}>
+        {value != null ? value.toLocaleString() : '—'}
+      </div>
     </div>
   );
 
@@ -146,7 +162,7 @@ function SummaryForm({ initial, onSubmit, onCancel, isLoading, submitLabel }: {
         <div>{nf('월', 'month', true)}</div>
         <div>{nf('수입 (원)', 'income')}</div>
         <div>{nf('지출 (원)', 'expense')}</div>
-        <div>{nf('순수익 (원)', 'net_income')}</div>
+        <div>{calcDiv('순수익 (원)', netIncome)}</div>
         <div>{nf('누적순수익 (원)', 'cumulative_net_income')}</div>
         <div>{nf('투자원금 (원)', 'investment_principal')}</div>
         <div>{nf('평가금 (원)', 'investment_value')}</div>
@@ -177,12 +193,25 @@ function MonthlySummaryStatus() {
   const [activeTab, setActiveTab] = useState<Tab>('목록');
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [editTarget, setEditTarget] = useState<MonthlySummary | null>(null);
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
 
   const { data: summaries = [], isLoading, error } = useQuery({
     queryKey: ['monthlySummaries'],
     queryFn: () => getMonthlySummaries(),
     refetchInterval: 30000,
   });
+
+  const availableYears = useMemo(() =>
+    [...new Set(summaries.map((s) => s.year))].sort() as number[],
+    [summaries]
+  );
+
+  const effectiveYear = selectedYear ?? (availableYears.at(-1) ?? null);
+
+  const yearFilteredSummaries = useMemo(() =>
+    effectiveYear != null ? summaries.filter((s) => s.year === effectiveYear) : summaries,
+    [summaries, effectiveYear]
+  );
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['monthlySummaries'] });
 
@@ -208,7 +237,7 @@ function MonthlySummaryStatus() {
   };
   const handleClose = () => { setModalMode(null); setEditTarget(null); };
 
-  const sorted = [...summaries].sort((a, b) => a.year !== b.year ? a.year - b.year : a.month - b.month);
+  const sorted = [...yearFilteredSummaries].sort((a, b) => a.year !== b.year ? a.year - b.year : a.month - b.month);
   const initialFormData: FormData = editTarget ? toFormData(editTarget) : emptyFormData();
 
   const tabStyle = (key: Tab): React.CSSProperties => ({
@@ -229,11 +258,16 @@ function MonthlySummaryStatus() {
         <div>
           <h2 style={{ font: 'var(--md-title-small)', color: 'var(--md-sys-light-on-surface)', margin: '0 0 4px' }}>월별 결산</h2>
           <p style={{ font: 'var(--md-label-small)', color: 'var(--md-sys-light-on-surface-variant)', margin: 0 }}>
-            {summaries.length}건
+            {yearFilteredSummaries.length}건
           </p>
         </div>
         <button style={btnPrimary} onClick={() => { setEditTarget(null); setModalMode('add'); }}>+ 추가</button>
       </div>
+
+      {/* 연도 탭 */}
+      {availableYears.length > 0 && effectiveYear != null && (
+        <YearTabs years={availableYears} selected={effectiveYear} onChange={setSelectedYear} />
+      )}
 
       {/* 탭 */}
       <div style={{ display: 'flex', borderBottom: '1px solid var(--md-sys-light-outline-variant)', marginBottom: 'var(--md-space-md)', gap: '4px' }}>
@@ -242,7 +276,7 @@ function MonthlySummaryStatus() {
             {t}
             {t === '목록' && (
               <span style={{ marginLeft: '4px', padding: '1px 6px', borderRadius: '999px', font: 'var(--md-label-small)', backgroundColor: activeTab === '목록' ? 'var(--md-sys-light-primary)' : 'var(--md-sys-light-surface-container-high)', color: activeTab === '목록' ? 'var(--md-sys-light-on-primary)' : 'var(--md-sys-light-on-surface-variant)' }}>
-                {summaries.length}
+                {yearFilteredSummaries.length}
               </span>
             )}
           </button>
@@ -251,7 +285,7 @@ function MonthlySummaryStatus() {
 
       {/* 탭 콘텐츠 */}
       {activeTab === '목록' && (
-        summaries.length === 0 ? (
+        yearFilteredSummaries.length === 0 ? (
           <p style={{ font: 'var(--md-body-medium)', color: 'var(--md-sys-light-on-surface-variant)', padding: 'var(--md-space-lg) 0' }}>
             등록된 월별 결산 데이터가 없습니다.
           </p>
@@ -293,8 +327,8 @@ function MonthlySummaryStatus() {
       )}
 
       {activeTab === '차트' && (
-        summaries.length > 0
-          ? <MonthlySummaryCharts summaries={summaries} />
+        yearFilteredSummaries.length > 0
+          ? <MonthlySummaryCharts summaries={yearFilteredSummaries} />
           : <p style={{ font: 'var(--md-body-medium)', color: 'var(--md-sys-light-on-surface-variant)', padding: 'var(--md-space-lg) 0' }}>데이터가 없습니다.</p>
       )}
 

@@ -101,3 +101,57 @@ class RealEstateAnalysis(Base):
     analysis_data = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class InvestmentStatus(Base):
+    __tablename__ = "investment_status"
+
+    id = Column(Integer, primary_key=True, index=True)
+    investment_type = Column(String, nullable=True)   # 주식, 펀드 등
+    company = Column(String, nullable=True)           # 금융사
+    product_name = Column(String, nullable=False)     # 상품명
+    principal = Column(Numeric(15, 2), nullable=True) # 투자원금
+    current_value = Column(Numeric(15, 4), nullable=True) # 평가금액
+    return_rate = Column(Numeric(10, 4), nullable=True)   # 수익률(%)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class FinancialSnapshot(Base):
+    __tablename__ = "financial_snapshot"
+
+    id = Column(Integer, primary_key=True, index=True)
+    total_assets = Column(Numeric(18, 4), nullable=True)
+    total_liabilities = Column(Numeric(18, 4), nullable=True)
+    net_assets = Column(Numeric(18, 4), nullable=True)
+    snapshot_data = Column(JSON, nullable=True)   # 자산 카테고리별 상세 내역
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class LedgerTransaction(Base):
+    __tablename__ = "ledger_transaction"
+
+    id = Column(Integer, primary_key=True, index=True)
+    transaction_date = Column(DateTime, nullable=True, index=True)
+    transaction_time = Column(String, nullable=True)
+    transaction_type = Column(String, nullable=True, index=True)  # 지출/수입/이체
+    category = Column(String, nullable=True, index=True)          # 대분류
+    subcategory = Column(String, nullable=True)                   # 소분류
+    description = Column(String, nullable=True)                   # 내용
+    amount = Column(Numeric(15, 2), nullable=True)
+    currency = Column(String, nullable=True)
+    payment_method = Column(String, nullable=True)                # 결제수단
+    memo = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class UploadHistory(Base):
+    __tablename__ = "upload_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    filename = Column(String, nullable=False)
+    file_size = Column(Integer, nullable=True)       # bytes
+    result_json = Column(JSON, nullable=True)        # import 결과 (upsert 건수 등)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

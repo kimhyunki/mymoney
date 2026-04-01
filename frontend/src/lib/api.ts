@@ -5,6 +5,10 @@ import type {
   MonthlySummary, MonthlySummaryCreate, MonthlySummaryUpdate,
   FinancialGoal, FinancialGoalCreate, FinancialGoalUpdate,
   RealEstateAnalysis, RealEstateAnalysisCreate, RealEstateAnalysisUpdate,
+  InvestmentStatus, InvestmentStatusCreate, InvestmentStatusUpdate,
+  FinancialSnapshot,
+  LedgerTransaction, LedgerTransactionCreate, LedgerTransactionUpdate,
+  UploadHistory,
 } from '@/types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8051';
@@ -112,3 +116,80 @@ export const updateRealEstateAnalysis = (id: number, data: RealEstateAnalysisUpd
 
 export const deleteRealEstateAnalysis = (id: number): Promise<void> =>
   fetchAPI(`/api/real-estate-analyses/${id}`, { method: 'DELETE' });
+
+// ── InvestmentStatus ──────────────────────────────────────────
+export const getInvestmentStatuses = (): Promise<InvestmentStatus[]> =>
+  fetchAPI('/api/investment-statuses');
+
+export const createInvestmentStatus = (data: InvestmentStatusCreate): Promise<InvestmentStatus> =>
+  fetchAPI('/api/investment-statuses', { method: 'POST', body: JSON.stringify(data) });
+
+export const updateInvestmentStatus = (id: number, data: InvestmentStatusUpdate): Promise<InvestmentStatus> =>
+  fetchAPI(`/api/investment-statuses/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+
+export const deleteInvestmentStatus = (id: number): Promise<void> =>
+  fetchAPI(`/api/investment-statuses/${id}`, { method: 'DELETE' });
+
+// ── FinancialSnapshot ─────────────────────────────────────────
+export const getFinancialSnapshot = (): Promise<FinancialSnapshot | null> =>
+  fetchAPI('/api/financial-snapshot');
+
+// ── LedgerTransaction ─────────────────────────────────────────
+export const getLedgerTransactions = (params?: { transaction_type?: string; category?: string }): Promise<LedgerTransaction[]> => {
+  const query = new URLSearchParams();
+  if (params?.transaction_type) query.set('transaction_type', params.transaction_type);
+  if (params?.category) query.set('category', params.category);
+  const qs = query.toString();
+  return fetchAPI(`/api/ledger-transactions${qs ? `?${qs}` : ''}`);
+};
+
+export const createLedgerTransaction = (data: LedgerTransactionCreate): Promise<LedgerTransaction> =>
+  fetchAPI('/api/ledger-transactions', { method: 'POST', body: JSON.stringify(data) });
+
+export const updateLedgerTransaction = (id: number, data: LedgerTransactionUpdate): Promise<LedgerTransaction> =>
+  fetchAPI(`/api/ledger-transactions/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+
+export const deleteLedgerTransaction = (id: number): Promise<void> =>
+  fetchAPI(`/api/ledger-transactions/${id}`, { method: 'DELETE' });
+
+export type ImportBanksaladResult = {
+  customer: { updated: number; inserted: number };
+  cash_flow: { updated: number; inserted: number };
+  monthly_summary: { updated: number; inserted: number };
+  investment: { updated: number; inserted: number };
+  financial_snapshot: { updated: number; inserted: number };
+  ledger: { inserted: number; skipped: number };
+};
+
+export const importBanksaladExcel = (file: File): Promise<ImportBanksaladResult> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return fetch(`${API_URL}/api/import/banksalad-excel`, {
+    method: 'POST',
+    body: formData,
+  }).then(async res => {
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail ?? '가져오기 실패');
+    }
+    return res.json();
+  });
+};
+
+export const getUploadHistory = (): Promise<UploadHistory[]> =>
+  fetchAPI('/api/upload-history');
+
+export const uploadLedgerExcel = (file: File): Promise<{ inserted: number; skipped: number }> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return fetch(`${API_URL}/api/ledger-transactions/import-excel`, {
+    method: 'POST',
+    body: formData,
+  }).then(async res => {
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail ?? 'Excel 업로드 실패');
+    }
+    return res.json();
+  });
+};

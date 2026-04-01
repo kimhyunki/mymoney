@@ -190,3 +190,95 @@ class RealEstateAnalysisResponse(RealEstateAnalysisBase):
 
     class Config:
         from_attributes = True
+
+
+# ── LedgerTransaction ─────────────────────────────────────────
+class LedgerTransactionBase(BaseModel):
+    transaction_date: Optional[datetime] = None
+    transaction_time: Optional[str] = None
+    transaction_type: Optional[str] = None
+    category: Optional[str] = None
+    subcategory: Optional[str] = None
+    description: Optional[str] = None
+    amount: Optional[float] = None
+    currency: Optional[str] = None
+    payment_method: Optional[str] = None
+    memo: Optional[str] = None
+
+class LedgerTransactionCreate(LedgerTransactionBase):
+    pass
+
+class LedgerTransactionUpdate(BaseModel):
+    transaction_date: Optional[datetime] = None
+    transaction_time: Optional[str] = None
+    transaction_type: Optional[str] = None
+    category: Optional[str] = None
+    subcategory: Optional[str] = None
+    description: Optional[str] = None
+    amount: Optional[float] = None
+    currency: Optional[str] = None
+    payment_method: Optional[str] = None
+    memo: Optional[str] = None
+
+class LedgerTransactionResponse(LedgerTransactionBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ── InvestmentStatus ──────────────────────────────────────────
+class InvestmentStatusBase(BaseModel):
+    investment_type: Optional[str] = None
+    company: Optional[str] = None
+    product_name: str
+    principal: Optional[float] = None
+    current_value: Optional[float] = None
+    return_rate: Optional[float] = None
+
+class InvestmentStatusCreate(InvestmentStatusBase):
+    pass
+
+class InvestmentStatusUpdate(BaseModel):
+    investment_type: Optional[str] = None
+    company: Optional[str] = None
+    product_name: Optional[str] = None
+    principal: Optional[float] = None
+    current_value: Optional[float] = None
+    return_rate: Optional[float] = None
+
+class InvestmentStatusResponse(InvestmentStatusBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ── UploadHistory ─────────────────────────────────────────────
+class UploadHistoryResponse(BaseModel):
+    id: int
+    filename: str
+    file_size: Optional[int] = None
+    result_json: Optional[Dict[str, Any]] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ── FinancialSnapshot ─────────────────────────────────────────
+class FinancialSnapshotResponse(BaseModel):
+    id: int
+    total_assets: Optional[float] = None
+    total_liabilities: Optional[float] = None
+    net_assets: Optional[float] = None
+    snapshot_data: Optional[Dict[str, Any]] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
