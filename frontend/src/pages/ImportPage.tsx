@@ -64,6 +64,7 @@ export default function ImportPage() {
   const { data: history = [], refetch: refetchHistory } = useQuery<UploadHistory[]>({
     queryKey: ['upload-history'],
     queryFn: getUploadHistory,
+    refetchInterval: 30000,
   });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {

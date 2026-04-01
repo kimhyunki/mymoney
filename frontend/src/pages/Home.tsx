@@ -6,21 +6,25 @@ export default function Home() {
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
     queryFn: getCustomers,
+    refetchInterval: 30000,
   });
 
   const { data: cashFlows = [] } = useQuery({
     queryKey: ['cashFlows'],
     queryFn: getCashFlows,
+    refetchInterval: 30000,
   });
 
   const { data: fixedExpenses = [] } = useQuery({
     queryKey: ['fixedExpenses'],
     queryFn: getFixedExpenses,
+    refetchInterval: 30000,
   });
 
   const { data: monthlySummaries = [] } = useQuery({
     queryKey: ['monthlySummaries'],
     queryFn: () => getMonthlySummaries(),
+    refetchInterval: 30000,
   });
 
   const now = new Date();
@@ -194,10 +198,16 @@ export default function Home() {
           {[
             { to: '/customers', label: '고객 정보 관리', icon: '👥' },
             { to: '/cashflow', label: '현금 흐름 관리', icon: '💰' },
+            { to: '/financial-status', label: '재무 현황', icon: '🏦' },
+            { to: '/insurance', label: '보험 현황', icon: '🛡️' },
+            { to: '/investment', label: '투자 현황', icon: '📈' },
+            { to: '/loans', label: '대출 현황', icon: '🏦' },
             { to: '/fixed-expenses', label: '고정비 관리', icon: '📋' },
             { to: '/monthly-summary', label: '월별 결산 관리', icon: '📅' },
             { to: '/financial-goal', label: '분양금 계획 관리', icon: '🏗️' },
             { to: '/real-estate', label: '부동산 분석 관리', icon: '🏡' },
+            { to: '/ledger', label: '가계부 내역', icon: '📒' },
+            { to: '/import', label: '파일 가져오기', icon: '📥' },
           ].map((item) => (
             <Link
               key={item.to}
