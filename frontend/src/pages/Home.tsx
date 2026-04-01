@@ -21,9 +21,10 @@ export default function Home() {
     refetchInterval: 30000,
   });
 
+  const currentYear = new Date().getFullYear();
   const { data: monthlySummaries = [] } = useQuery({
-    queryKey: ['monthlySummaries'],
-    queryFn: () => getMonthlySummaries(),
+    queryKey: ['monthlySummaries', currentYear],
+    queryFn: () => getMonthlySummaries(currentYear),
     refetchInterval: 30000,
   });
 

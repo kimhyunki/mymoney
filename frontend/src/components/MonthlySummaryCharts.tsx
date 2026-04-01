@@ -70,6 +70,18 @@ function MonthlySummaryCharts({ summaries }: MonthlySummaryChartsProps) {
   const totalIncome = activeData.reduce((s, d) => s + d.income, 0);
   const totalExpense = activeData.reduce((s, d) => s + d.expense, 0);
 
+  // 투자 현황: 가장 최근 투자 데이터 기준
+  const latestInvest = investData.length > 0 ? investData[investData.length - 1] : null;
+  const investReturnRate =
+    latestInvest != null &&
+    latestInvest.investment_principal != null &&
+    latestInvest.investment_principal !== 0 &&
+    latestInvest.investment_value != null
+      ? ((latestInvest.investment_value - latestInvest.investment_principal) /
+          latestInvest.investment_principal) *
+        100
+      : null;
+
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
     return (
@@ -96,11 +108,11 @@ function MonthlySummaryCharts({ summaries }: MonthlySummaryChartsProps) {
       {/* 요약 카드 */}
       <div style={{ display: 'flex', gap: 'var(--md-space-md)', marginBottom: 'var(--md-space-xl)', flexWrap: 'wrap' }}>
         {[
-          { label: '연도', value: years.join(', ') },
-          { label: '누적 수입 합계', value: formatAmount(totalIncome) },
-          { label: '누적 지출 합계', value: formatAmount(totalExpense) },
-          { label: '누적 순수익', value: latest ? formatAmount(latest.cumulative_net_income) : '-' },
-        ].map(({ label, value }) => (
+          { label: '연도', value: years.join(', '), color: undefined },
+          { label: '누적 수입 합계', value: formatAmount(totalIncome), color: undefined },
+          { label: '누적 지출 합계', value: formatAmount(totalExpense), color: undefined },
+          { label: '누적 순수익', value: latest ? formatAmount(latest.cumulative_net_income) : '-', color: undefined },
+        ].map(({ label, value, color }) => (
           <div key={label} style={{
             flex: '1 1 140px',
             backgroundColor: 'var(--md-sys-light-surface)',
@@ -110,9 +122,63 @@ function MonthlySummaryCharts({ summaries }: MonthlySummaryChartsProps) {
             textAlign: 'center',
           }}>
             <p style={{ margin: 0, font: 'var(--md-label-small)', color: 'var(--md-sys-light-on-surface-variant)' }}>{label}</p>
-            <p style={{ margin: '4px 0 0', font: 'var(--md-title-small)', color: 'var(--md-sys-light-on-surface)', fontWeight: 700 }}>{value}</p>
+            <p style={{ margin: '4px 0 0', font: 'var(--md-title-small)', color: color ?? 'var(--md-sys-light-on-surface)', fontWeight: 700 }}>{value}</p>
           </div>
         ))}
+
+        {/* 투자 현황 카드 (데이터가 있는 경우에만 표시) */}
+        {latestInvest != null && (
+          <>
+            <div style={{
+              flex: '1 1 140px',
+              backgroundColor: 'var(--md-sys-light-surface)',
+              borderRadius: 'var(--md-radius-md)',
+              padding: 'var(--md-space-md)',
+              border: '1px solid var(--md-sys-light-outline-variant)',
+              textAlign: 'center',
+            }}>
+              <p style={{ margin: 0, font: 'var(--md-label-small)', color: 'var(--md-sys-light-on-surface-variant)' }}>투자 원금</p>
+              <p style={{ margin: '4px 0 0', font: 'var(--md-title-small)', color: 'var(--md-sys-light-on-surface)', fontWeight: 700 }}>
+                {latestInvest.investment_principal != null ? formatAmount(latestInvest.investment_principal) : '-'}
+              </p>
+            </div>
+            <div style={{
+              flex: '1 1 140px',
+              backgroundColor: 'var(--md-sys-light-surface)',
+              borderRadius: 'var(--md-radius-md)',
+              padding: 'var(--md-space-md)',
+              border: '1px solid var(--md-sys-light-outline-variant)',
+              textAlign: 'center',
+            }}>
+              <p style={{ margin: 0, font: 'var(--md-label-small)', color: 'var(--md-sys-light-on-surface-variant)' }}>투자 평가금</p>
+              <p style={{ margin: '4px 0 0', font: 'var(--md-title-small)', color: 'var(--md-sys-light-on-surface)', fontWeight: 700 }}>
+                {latestInvest.investment_value != null ? formatAmount(latestInvest.investment_value) : '-'}
+              </p>
+            </div>
+            <div style={{
+              flex: '1 1 140px',
+              backgroundColor: 'var(--md-sys-light-surface)',
+              borderRadius: 'var(--md-radius-md)',
+              padding: 'var(--md-space-md)',
+              border: '1px solid var(--md-sys-light-outline-variant)',
+              textAlign: 'center',
+            }}>
+              <p style={{ margin: 0, font: 'var(--md-label-small)', color: 'var(--md-sys-light-on-surface-variant)' }}>투자 수익률</p>
+              <p style={{
+                margin: '4px 0 0',
+                font: 'var(--md-title-small)',
+                fontWeight: 700,
+                color: investReturnRate == null
+                  ? 'var(--md-sys-light-on-surface)'
+                  : investReturnRate >= 0
+                  ? '#3D9A8B'
+                  : 'rgba(186,26,26,0.9)',
+              }}>
+                {investReturnRate != null ? `${investReturnRate >= 0 ? '+' : ''}${investReturnRate.toFixed(2)}%` : '-'}
+              </p>
+            </div>
+          </>
+        )}
       </div>
 
       {/* 월별 수입/지출/순수익 복합 차트 */}
