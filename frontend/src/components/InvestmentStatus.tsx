@@ -187,13 +187,23 @@ export default function InvestmentStatusComponent() {
     .sort((a, b) => b.value - a.value);
 
   const barData = [...items]
-    .sort((a, b) => (b.return_rate ?? 0) - (a.return_rate ?? 0))
-    .map(i => ({
-      name: shortName(i.product_name),
-      fullName: i.product_name,
-      return_rate: i.return_rate ?? 0,
-      pnl: (i.current_value ?? 0) - (i.principal ?? 0),
-    }));
+    .filter(i => (i.current_value ?? 0) > 0 && (i.principal ?? 0) > 0)
+    .map(i => {
+      const principal = Number(i.principal);
+      const currentValue = Number(i.current_value);
+      const pnl = currentValue - principal;
+      // DB에 return_rate가 없으면 직접 계산
+      const return_rate = i.return_rate != null
+        ? Number(i.return_rate)
+        : (pnl / principal) * 100;
+      return {
+        name: shortName(i.product_name),
+        fullName: i.product_name,
+        return_rate,
+        pnl,
+      };
+    })
+    .sort((a, b) => b.return_rate - a.return_rate);
 
   // ── 수익률 색상 ──────────────────────────────────────────────
   function rateColor(rate: number | null) {
